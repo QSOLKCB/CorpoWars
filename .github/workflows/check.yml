@@ -32,7 +32,10 @@ jobs:
       - name: Install browser test dependencies
         run: |
           npm install --prefix "$RUNNER_TEMP/corpowars-browser" --no-audit --no-fund playwright@1.56.1
-          "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install --with-deps chromium
+          # Ubuntu 24.04 hosted runners already supply Chromium's shared libraries.
+          # Avoid reinstalling system fonts/packages; the full browser test below
+          # still fails if any required runtime library is absent.
+          "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install chromium
       - run: node scripts/build.mjs
       - name: Play a complete mission in Chromium WebGL2
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs

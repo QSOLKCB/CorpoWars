@@ -42,7 +42,7 @@ function setPause() {
 }
 function autoPause() {keys.clear();cancelDrag();if(game.phase==='active'){game.paused=true;accumulator=0;updateUI();}}
 function openManual() {helpWasPaused=game.paused;if(game.phase==='active')game.paused=true;keys.clear();$('manual').showModal();updateUI();}
-$('manual').addEventListener('close',()=>{if(game.phase==='active'&&!graphicsLost){game.paused=helpWasPaused||document.hidden;updateUI();}canvas.focus();});
+$('manual').addEventListener('close',()=>{if(game.phase==='active'&&!graphicsLost){game.paused=helpWasPaused||document.hidden;updateUI();canvas.focus();}});
 $('debrief').addEventListener('cancel',event=>event.preventDefault());
 $('deploy').addEventListener('click',()=>{if(!renderer||graphicsLost)return;startGame(game);game.paused=false;$('briefing').hidden=true;focusSquad();renderer.zoom=1.15;canvas.focus();updateUI();});
 $('sound').addEventListener('click',async()=>{const enabled=await sound.toggle();$('sound').setAttribute('aria-pressed',String(enabled));$('sound').querySelector('span').textContent=enabled?'ON':'OFF';});
@@ -113,9 +113,11 @@ $('minimap').addEventListener('click',event=>{
 document.addEventListener('keydown',event=>{
   if($('manual').open||$('debrief').open||event.ctrlKey||event.metaKey||event.altKey||/INPUT|TEXTAREA|SELECT/.test(event.target.tagName))return;
   const key=event.key.toLowerCase();
+  if(key==='?'&&!event.repeat){openManual();return;}
+  // Keep native keyboard activation (especially Space on Deploy) in menus.
+  if(game.phase!=='active')return;
   if([' ','arrowup','arrowdown','arrowleft','arrowright','escape'].includes(key))event.preventDefault();
   if(event.repeat)return;
-  if(key==='?'){openManual();return;}
   if(!renderer||graphicsLost)return;
   keys.add(key);
   if(key===' ')setPause();

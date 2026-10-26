@@ -33,7 +33,7 @@ const server=createServer(async(req,res)=>{
       done({colors:colors.size,error:gl.getError(),version:gl.getParameter(gl.VERSION)});
     })));
     assert.equal(pixels.error,0);assert.ok(pixels.version.includes('WebGL 2'));assert.ok(pixels.colors>5,`Blank or flat scene: ${JSON.stringify(pixels)}`);
-    await page.locator('#deploy').click();await page.locator('#pause').click();
+    await page.locator('#deploy').press('Space');await page.locator('#pause').click();
     assert.equal(await page.locator('#pause-banner').isVisible(),true);
     const clock=await page.locator('#clock').textContent();await page.waitForTimeout(1100);assert.equal(await page.locator('#clock').textContent(),clock);
     await page.locator('#agent-1').click();assert.equal(await page.locator('#agent-0').getAttribute('aria-pressed'),'false');assert.equal(await page.locator('#agent-1').getAttribute('aria-pressed'),'true');
