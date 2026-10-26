@@ -13,6 +13,8 @@ server, asset downloads, or build step required to play a hosted copy.
 **[Play CorpoWars](https://qsolkcb.github.io/CorpoWars/)** ·
 [Get started](GETTING_STARTED.md) · [Field manual](INSTRUCTIONS.md)
 
+![CorpoWars: Hostile Takeover rendered in Chromium WebGL2](docs/images/briefing.png)
+
 ## v0.1.0 — Hostile Takeover
 
 Command four agents through a complete original mission in Breakwater: disable

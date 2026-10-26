@@ -41,6 +41,9 @@ const server=createServer(async(req,res)=>{
     await page.waitForFunction(()=>document.getElementById('relay-order').classList.contains('done'),null,{timeout:45000});
     await page.locator('#vault-order').click();await page.waitForFunction(()=>document.getElementById('vault-order').classList.contains('done'),null,{timeout:60000});
     await page.screenshot({path:'test-results/ledger-secured.png',fullPage:true});
+    await page.locator('#cutaway').click();assert.equal(await page.locator('#cutaway').getAttribute('aria-pressed'),'true');
+    await page.screenshot({path:'test-results/cutaway.png',fullPage:true});
+    await page.locator('#cutaway').click();assert.equal(await page.locator('#cutaway').getAttribute('aria-pressed'),'false');
     await page.locator('#exit-order').click();await page.locator('#debrief').waitFor({state:'visible',timeout:60000});
     assert.match(await page.locator('#result-title').textContent(),/FULFILLED/);await page.screenshot({path:'test-results/victory.png',fullPage:true});
     await page.locator('#retry').click();await page.setViewportSize({width:390,height:844});

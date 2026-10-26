@@ -14,6 +14,7 @@ Codex. The repository's pre-existing Apache 2.0 licence is retained unchanged.
 | Fiction, mission, agent names, interface text | Original CorpoWars material | HTML, simulation, docs |
 | Typefaces | User device's system fonts | CSS fallback stacks; no bundled fonts |
 | Test-only dependencies | Node built-ins, GitHub Actions, Playwright/Chromium | CI; not shipped in `dist/` |
+| README screenshot | Unedited Chromium WebGL2 capture of this game at `09cfead142654a0680d713b56427a06862312779` | `docs/images/briefing.png`; [CI run](https://github.com/QSOLKCB/CorpoWars/actions/runs/40354546823) |
 
 The FreeSynd public overview and download pages were consulted for project
 context. They identify FreeSynd as a reimplementation requiring original game
