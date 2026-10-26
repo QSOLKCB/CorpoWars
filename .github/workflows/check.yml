@@ -1,0 +1,48 @@
+name: Correctness
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  simulation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/check.mjs
+      - run: node --test tests/*.test.js
+      - run: node scripts/build.mjs
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/corpowars-browser" --no-audit --no-fund playwright@1.56.1
+          # Ubuntu 24.04 hosted runners already supply Chromium's shared libraries.
+          # Avoid reinstalling system fonts/packages; the full browser test below
+          # still fails if any required runtime library is absent.
+          "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install chromium
+      - run: node scripts/build.mjs
+      - name: Play a complete mission in Chromium WebGL2
+        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
+      - name: Retain visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots
+          path: test-results/
+          if-no-files-found: ignore

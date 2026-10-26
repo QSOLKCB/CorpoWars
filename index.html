@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111719">
+  <meta name="description" content="CorpoWars — original open-source isometric squad tactics. Command four agents in a city owned by corporations. Play in your browser.">
+  <title>CorpoWars — Hostile Takeover</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="./" aria-label="CorpoWars home"><span class="brand-mark" aria-hidden="true">C<span>W</span></span><span>CORPO<span class="brand-light">WARS</span><small>TACTICAL OPERATIONS DIVISION</small></span></a>
+    <div class="header-meta"><span class="status-light"></span> INDEPENDENT NETWORK <span class="divider">/</span> EST. 2091</div>
+    <nav aria-label="Game options"><button id="sound" aria-pressed="false" title="Toggle synthesised audio">SOUND <span>OFF</span></button><button id="help">FIELD MANUAL <kbd>?</kbd></button><a href="https://github.com/QSOLKCB/CorpoWars" target="_blank" rel="noopener">SOURCE ↗</a></nav>
+  </header>
+  <main>
+    <div class="operation-heading"><div><span class="eyebrow">OPERATION 001 <span>/</span> BREAKWATER DISTRICT</span><h1>HOSTILE TAKEOVER<span class="heading-square">■</span></h1></div><div class="op-status"><span id="phase">AWAITING DEPLOYMENT</span><strong id="clock">00:00</strong></div></div>
+    <div class="operations">
+      <aside class="sidebar" aria-label="Mission information">
+        <section class="directive"><div class="section-label">MISSION DIRECTIVE <span>01—03</span></div><p>The city belongs to whoever owns its debt.<br><strong>Tonight, we change the owner.</strong></p></section>
+        <section class="objectives"><h2 class="section-label">CONTRACT OBJECTIVES</h2>
+          <button class="objective current" id="relay-order" data-objective="relay"><span class="objective-num">01</span><span><strong>Sever the uplink</strong><small>Disable the district relay</small><span class="progress-track"><span id="relay-progress"></span></span></span><span class="objective-arrow">↗</span></button>
+          <button class="objective" id="vault-order" data-objective="vault"><span class="objective-num">02</span><span><strong>Acquire the ledger</strong><small>Extract the corporate debt records</small><span class="progress-track"><span id="vault-progress"></span></span></span><span class="objective-arrow">↗</span></button>
+          <button class="objective" id="exit-order" data-objective="exit"><span class="objective-num">03</span><span><strong>Leave no one behind</strong><small>Extract every surviving agent</small><span class="progress-track"><span id="exit-progress"></span></span></span><span class="objective-arrow">↗</span></button>
+          <p class="micro">Click an objective to send selected agents.</p>
+        </section>
+        <section class="sector"><h2 class="section-label">SECTOR OVERVIEW <span>36 × 36</span></h2><canvas id="minimap" width="216" height="216" aria-label="Sector map. Click to reposition the camera."></canvas><div class="map-key"><span><i class="ally"></i>SQUAD</span><span><i class="hostile"></i>HOSTILE</span><span><i class="target"></i>TARGET</span></div></section>
+        <section class="feed"><h2 class="section-label">COMMS FEED <span class="status-light"></span></h2><ol id="comms"><li>Waiting for deployment clearance.</li></ol></section>
+      </aside>
+      <section class="viewport" aria-label="Tactical battlefield">
+        <canvas id="battlefield" tabindex="0" aria-label="Isometric battlefield. Click ground to move, drag to select agents, or use the objective buttons. Press question mark for controls."></canvas>
+        <div class="scene-top"><span><span class="status-light"></span> <span id="sector-state">BREAKWATER / SECTOR 09</span></span><span class="live-tag">LIVE FEED</span></div>
+        <div id="world-labels" aria-hidden="true"></div>
+        <div id="selection-box" hidden></div>
+        <div class="scene-tools"><button id="focus" title="Focus selected agents (F)" aria-label="Focus selected agents">⌖</button><button id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button><button id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button><button id="cutaway" aria-pressed="false" title="Toggle building cutaway (T)">CUTAWAY</button></div>
+        <div id="briefing" class="briefing"><span class="eyebrow">CLASSIFIED // PRIVATE CONTRACT</span><h2>POWER IS<br>A HOSTILE ASSET.</h2><p>Four agents. One stolen ledger.<br>A city that would rather you disappeared.</p><div class="brief-stats"><span><b>04</b> AGENTS</span><span><b>03</b> OBJECTIVES</span><span><b>∞</b> LIABILITY</span></div><button class="primary" id="deploy">DEPLOY SQUAD <span>↗</span></button><small>Original open-source tactical game · v0.1.0</small></div>
+        <div id="pause-banner" hidden>TACTICAL PAUSE <small>Issue your orders. Press Space to resume.</small></div>
+        <div id="graphics-error" class="graphics-error" role="alert" hidden><h2>Display link unavailable</h2><p id="graphics-message"></p><button id="reload">RECONNECT</button></div>
+        <div class="scene-bottom"><span id="context-hint">SELECT · COMMAND · ACQUIRE</span><span id="render-status">WEBGL2 <span class="divider">/</span> ISOMETRIC</span></div>
+      </section>
+    </div>
+    <section class="squad-bar" aria-label="Squad and commands"><div class="squad-caption"><span class="eyebrow">YOUR ASSETS</span><strong>SQUAD / 04</strong><button id="select-all">SELECT ALL <kbd>A</kbd></button></div><div id="agents" class="agents"></div><div class="commands"><button id="pause">PAUSE <kbd>SPACE</kbd></button><button id="medkit" title="Heal injured selected agents (M)">PATCH <span>02</span></button><button id="pulse" title="Disable nearby guards for six seconds (X)">EMP <span>02</span></button><button id="hold-fire" aria-pressed="false" title="Toggle automatic fire (H)">FIRE AT WILL</button></div></section>
+    <footer><span>QSOL–IMC <span class="divider">/</span> NO SHAREHOLDERS WERE CONSULTED.</span><span>OPEN SOURCE. CLOSED QUARTER.</span></footer>
+  </main>
+  <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+  <dialog id="manual"><form method="dialog"><button class="dialog-close" aria-label="Close field manual">×</button><span class="eyebrow">OPERATIVE REFERENCE</span><h2>FIELD MANUAL</h2><p>Disable the relay, steal the ledger, then get every surviving agent back to the extraction ring. Agents hack automatically while standing beside a terminal. They fire and reload automatically.</p><dl><dt>Click / right-click ground</dt><dd>Move selected agents</dd><dt>Click an agent / drag a box</dt><dd>Select agents; Shift adds to selection</dd><dt>Click a visible hostile</dt><dd>Focus fire and approach</dd><dt>1–4 / A</dt><dd>Select one agent / select all</dd><dt>Space / Escape</dt><dd>Pause and plan / stop selected agents</dd><dt>Arrows / middle-drag</dt><dd>Pan camera</dd><dt>F / scroll / + −</dt><dd>Focus squad / zoom</dd><dt>M / X / H / T</dt><dd>Trauma patch / EMP / hold fire / cutaway</dd></dl><p class="manual-note">Buildings block movement and gunfire. Selected markers remain visible through roofs. The minimap shows only detected enemies. Patches heal selected agents; EMP reaches seven tiles. Abilities require live time. On touchscreens, tap to command and use the on-screen controls.</p><button class="primary">RETURN TO OPERATION</button><button id="restart" type="button" class="secondary">RESTART MISSION</button></form></dialog>
+  <dialog id="debrief"><span class="eyebrow">OPERATION DEBRIEF</span><h2 id="result-title">CONTRACT FULFILLED</h2><p id="result-copy"></p><div id="result-stats"></div><p id="best-result" class="micro"></p><button id="retry" class="primary">REDEPLOY SQUAD <span>↗</span></button></dialog>
+  <noscript><p class="no-script">CorpoWars needs JavaScript and WebGL2 to run. Enable JavaScript, then reload.</p></noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
