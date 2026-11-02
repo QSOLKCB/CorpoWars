@@ -9,7 +9,10 @@ work. `scripts/build.mjs` packages a small allowlist of public game files.
 | `src/simulation.js` | Seeded world, agents, patrols, pathfinding, visibility, combat, abilities, mission transitions |
 | `src/renderer.js` | Native WebGL2 shaders, static meshes, procedural geometry, depth buffer, camera and picking projection |
 | `src/main.js` | DOM UI, pointer/keyboard input, minimap, animation loop, local record storage |
-| `src/audio.js` | Opt-in Web Audio oscillators and envelopes |
+| `src/campaign.js` | Weapon/research/mission catalogues, difficulty, economy, save validation |
+| `src/headquarters.js` | Armoury, research prerequisites and contract selection UI |
+| `src/music.js` | Pure deterministic score and bounded Web Audio look-ahead scheduling |
+| `src/audio.js` | Independent opt-in music/effects and Web Audio envelopes |
 
 ## Simulation
 
@@ -19,7 +22,10 @@ When an order changes mid-cell, the route returns through its current cell's
 centre to avoid corner clipping. Agents can overlap in transit; crowd collision
 and traffic physics are not implemented.
 
-The simulation runs at 30 fixed updates per simulated second. The browser caps
+The simulation runs at 30 fixed updates per simulated second. Rendering
+interpolates previous/current positions at the display refresh rate; pause uses
+the current position. Camera focus uses exponential easing, while manual pan
+responds immediately. Dynamic mesh arrays and GPU capacity are reused. The browser caps
 wall-clock deltas at 100 ms so a stalled frame cannot produce an unbounded
 catch-up loop. Slow machines may run below real time. Pause and hidden-tab
 handling discard elapsed catch-up time. Floating point positions are used;
@@ -52,9 +58,12 @@ texture is used; undiscovered hostiles are omitted from the scene and minimap.
 ## Storage and access
 
 There is no backend, authentication, telemetry, remote API, or account data.
-Only the shortest successful completion time is optionally stored under
-`corpowars-best-v1` in localStorage. Storage failures do not interrupt play.
-No save state is imported or executed.
+Campaign economy/loadout/research/progression is stored under
+`corpowars-campaign-v1`. Reads validate version, integer balances, catalogue IDs,
+ownership, prerequisites, completion order and the complete budget equation.
+Unknown/invalid saves fall back to a new campaign. Best times use separate keys
+for each mission and difficulty. No in-mission positions are saved, no arbitrary
+save object is spread into simulation state, and storage failures do not interrupt play.
 
 The HTML controls have accessible labels, focus indicators, and status text.
 Canvas gameplay still requires visual/spatial interaction; full screen-reader
@@ -70,3 +79,34 @@ The Chromium integration test checks actual WebGL2 colour output and plays a
 full mission through DOM controls, then checks restart, mobile layout, help,
 and the unsupported-GPU message. CI installs its test-only packages outside
 the checkout on a pinned Ubuntu 24.04 runner.
+
+## New mechanics
+
+Campaign missions supply their layout variant, seed, spawn, terminal locations,
+extraction and security deployment. Contract settlement checks ordered unlocks
+and pays each contract once. Research/weapon mutations operate only on the
+headquarters profile; deployed missions receive a snapshot. The UI prohibits
+purchases or difficulty changes during an operation.
+
+Panic checks range and line of sight from selected living agents. A bounded
+flood fill picks a reachable retreat that increases minimum distance from the
+emitters. Fear suspends firing, then expires; cooldown counts only simulated
+time. Hostile guards have explicit HP/damage/speed/fire-interval overrides and
+shorter fear, with no changes to Relaxed defaults.
+
+AUG mode changes set ammo to zero and require the complete new reload interval,
+including when requested while paused. Medical research cannot revive agents.
+
+The original chip score emits bounded note descriptors from integer step/bar
+indices. Web Audio schedules 120 ms ahead from a 25 ms timer. Suspended tabs
+discard missed beats; there is no backlog playback. Voice nodes disconnect on
+completion. The timer stops when music is muted or the tab loses focus. The
+score contains no samples, downloaded music, or quoted melodies.
+
+## Delivery
+
+Pull requests run `check.yml`. Main-branch Pages publication calls the same
+reusable validation workflow, including real Chromium WebGL2 gameplay and an
+offline audio render, before packaging the public-file allowlist and deploying.
+A failed gameplay check blocks deployment. Tests exercise the repository subpath,
+all three contracts, persistence, budget, research, camera and HUD layout.

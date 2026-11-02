@@ -29,8 +29,13 @@ function color(hex, light = 1, alpha = 1) {
 }
 
 class Mesh {
-  constructor() { this.data = []; }
-  tri(a, b, c, col) { for (const p of [a, b, c]) this.data.push(...p, ...col); }
+  constructor() { this.data = new Float32Array(65536); this.length=0; }
+  reset() {this.length=0;}
+  view() {return this.data.subarray(0,this.length);}
+  tri(a, b, c, col) {
+    if(this.length+21>this.data.length){const next=new Float32Array(this.data.length*2);next.set(this.data);this.data=next;}
+    for(const p of [a,b,c]){this.data[this.length++]=p[0];this.data[this.length++]=p[1];this.data[this.length++]=p[2];for(const v of col)this.data[this.length++]=v;}
+  }
   quad(a, b, c, d, col) { this.tri(a, b, c, col); this.tri(a, c, d, col); }
   floor(x, y, w, d, col, z = .01) { this.quad([x,y,z],[x+w,y,z],[x+w,y+d,z],[x,y+d,z], col); }
   box(x, y, w, d, h, col, base = 0) {
@@ -65,6 +70,7 @@ export class Renderer {
     const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'low-power'});
     if(!gl) throw new Error('WebGL2 is unavailable. Enable hardware acceleration or use a browser with WebGL2 support.');
     this.gl=gl; this.camera={x:14,y:22}; this.zoom=1; this.cutaway=false; this.width=1; this.height=1;
+    this.cameraTarget={...this.camera};this.mesh=new Mesh();this.overlay=new Mesh();this.dynamicBytes=0;this.pixelRatio=2;
     this.program=gl.createProgram();
     const vs=shader(gl,gl.VERTEX_SHADER,VERTEX), fs=shader(gl,gl.FRAGMENT_SHADER,FRAGMENT);
     gl.attachShader(this.program,vs);gl.attachShader(this.program,fs);gl.linkProgram(this.program);
@@ -90,9 +96,13 @@ export class Renderer {
       }
     }
     for(const b of world.buildings) {
+      // Static contact shadows and roof outlines give the city more depth at no
+      // per-frame geometry cost.
+      ground.floor(b.x+.28,b.y+.32,b.w+.25,b.d+.3,color('#060d10',1,.36),.04);
       const c=b.tone>.5?'#556264':'#444f55';
       city.box(b.x+.03,b.y+.03,b.w-.06,b.d-.06,b.height,c);
       city.box(b.x-.03,b.y-.03,b.w+.06,b.d+.06,.12,'#6d7770',b.height);
+      city.line([b.x,b.y+b.d,b.height+.13],[b.x+b.w,b.y+b.d,b.height+.13],.035,color('#a4b4a4'));
       city.box(b.x+.28,b.y+.25,Math.min(1.2,b.w-.5),Math.min(.8,b.d-.5),.4,'#313d40',b.height+.12);
       if(b.w>2) {
         city.box(b.x+1.9,b.y+.3,.5,.5,.23,'#818875',b.height+.12);
@@ -124,11 +134,11 @@ export class Renderer {
       city.box(x,y,.05,.05,1.65,'#75837a');city.box(x-.15,y-.05,.35,.15,.08,'#cebd78',1.65);
       ground.floor(x-.3,y-.3,.7,.7,color('#d4bd76',1,.07),.03);
     }
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.ground);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(ground.data),gl.STATIC_DRAW);this.groundCount=ground.data.length/7;
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.buildings);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(city.data),gl.STATIC_DRAW);this.cityCount=city.data.length/7;
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.ground);gl.bufferData(gl.ARRAY_BUFFER,ground.view(),gl.STATIC_DRAW);this.groundCount=ground.length/7;
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.buildings);gl.bufferData(gl.ARRAY_BUFFER,city.view(),gl.STATIC_DRAW);this.cityCount=city.length/7;
   }
   resize() {
-    const rect=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
+    const rect=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,this.pixelRatio);
     this.width=rect.width;this.height=rect.height;
     const w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
     if(this.canvas.width!==w||this.canvas.height!==h) {this.canvas.width=w;this.canvas.height=h;}
@@ -139,21 +149,28 @@ export class Renderer {
     const dx=(x-this.width/2)/(24*this.zoom),dy=(y-this.height/2)/(12*this.zoom);
     return {x:this.camera.x+(dx+dy)/2,y:this.camera.y+(dy-dx)/2};
   }
-  pan(dx,dy) {this.camera.x=clamp(this.camera.x+(dx/24+dy/12)/2/this.zoom,-2,38);this.camera.y=clamp(this.camera.y+(dy/12-dx/24)/2/this.zoom,-2,38);}
+  pan(dx,dy) {this.camera.x=clamp(this.camera.x+(dx/24+dy/12)/2/this.zoom,-2,38);this.camera.y=clamp(this.camera.y+(dy/12-dx/24)/2/this.zoom,-2,38);this.cameraTarget={...this.camera};}
   zoomBy(amount) {this.zoom=clamp(this.zoom*amount,.48,2.1);}
-  focus(point) {this.camera.x=point.x;this.camera.y=point.y;}
+  focus(point, immediate=false) {this.cameraTarget={x:clamp(point.x,-2,38),y:clamp(point.y,-2,38)};if(immediate)this.camera={...this.cameraTarget};}
   buffer(buffer,count) {
     const gl=this.gl,l=this.locations;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
     gl.enableVertexAttribArray(l.pos);gl.vertexAttribPointer(l.pos,3,gl.FLOAT,false,28,0);
     gl.enableVertexAttribArray(l.color);gl.vertexAttribPointer(l.color,4,gl.FLOAT,false,28,12);
     gl.drawArrays(gl.TRIANGLES,0,count);
   }
-  drawMesh(mesh) {const gl=this.gl;gl.bindBuffer(gl.ARRAY_BUFFER,this.dynamic);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(mesh.data),gl.DYNAMIC_DRAW);this.buffer(this.dynamic,mesh.data.length/7);}
-  render(game,hover) {
+  drawMesh(mesh) {
+    const gl=this.gl;gl.bindBuffer(gl.ARRAY_BUFFER,this.dynamic);
+    if(mesh.length*4>this.dynamicBytes){this.dynamicBytes=Math.max(262144,mesh.data.byteLength);gl.bufferData(gl.ARRAY_BUFFER,this.dynamicBytes,gl.DYNAMIC_DRAW);}
+    gl.bufferSubData(gl.ARRAY_BUFFER,0,mesh.view());this.buffer(this.dynamic,mesh.length/7);
+  }
+  render(game,hover,alpha=1,delta=1/60) {
+    const ease=1-Math.exp(-12*delta);
+    this.camera.x+=(this.cameraTarget.x-this.camera.x)*ease;this.camera.y+=(this.cameraTarget.y-this.camera.y)*ease;
+    const position=unit=>({...unit,x:(unit.prevX??unit.x)+(unit.x-(unit.prevX??unit.x))*alpha,y:(unit.prevY??unit.y)+(unit.y-(unit.prevY??unit.y))*alpha});
     const gl=this.gl;this.resize();gl.clearColor(.055,.075,.079,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(this.program);
     gl.uniform2f(this.locations.resolution,this.width,this.height);gl.uniform2f(this.locations.camera,this.camera.x,this.camera.y);gl.uniform1f(this.locations.zoom,this.zoom);
     gl.enable(gl.DEPTH_TEST);gl.depthMask(true);this.buffer(this.ground,this.groundCount);if(!this.cutaway)this.buffer(this.buildings,this.cityCount);
-    const mesh=new Mesh(),overlay=new Mesh();
+    const mesh=this.mesh,overlay=this.overlay;mesh.reset();overlay.reset();
     const points=[{...game.relay,active:!game.relay.done,kind:'relay'}, {...game.vault,active:game.relay.done&&!game.vault.done,kind:'vault'}, {...game.exit,done:game.phase==='won',active:game.vault.done,kind:'exit'}];
     for(const p of points) {
       const col=p.done?'#7f9d86':p.active?'#d1bd65':'#617476';
@@ -161,22 +178,29 @@ export class Renderer {
       if(p.kind!=='exit') {mesh.box(p.x-.22,p.y-.18,.44,.36,.65,'#6d7a72');mesh.box(p.x-.19,p.y-.2,.38,.04,.22,col,.38);}
       if(p.active) {overlay.ring(p.x,p.y,1.2+Math.sin(game.time*3)*.08,.035,color(col,1,.65));}
     }
-    for(const a of game.agents) {
+    for(const state of game.agents) {
+      const a=position(state);
       if(a.hp>0&&game.selected.has(a.id)) {
         mesh.ring(a.x,a.y,.43,.06,color('#e0c46d'));
         let from=a;
         for(const p of a.path) {mesh.line([from.x,from.y,.05],[p.x,p.y,.05],.025,color('#cdb65f',1,.45));from=p;}
       }
     }
-    for(const unit of [...game.agents,...game.guards.filter(e=>visibleGuard(game,e))]) {
-      const agent=unit.team==='agent',c=agent?'#d2c9a3':unit.stun>0?'#99c5bd':'#b26253';
+    for(const state of [...game.agents,...game.guards.filter(e=>visibleGuard(game,e))]) {
+      const unit=position(state);
+      const agent=unit.team==='agent',c=agent?'#d2c9a3':unit.fear>0?'#bd91cf':unit.stun>0?'#99c5bd':'#b26253';
       if(unit.hp<=0) {mesh.box(unit.x-.25,unit.y-.15,.5,.3,.08,'#4b5151');continue;}
-      const moving=unit.path.length>0,swing=moving?Math.sin(game.time*13+unit.id)*.1:0;
+      const moving=unit.path.length>0,swing=moving?Math.sin((game.time+alpha/30)*13+unit.id)*.1:0;
       mesh.ring(unit.x,unit.y,.32,.3,color('#050d0e',1,.6),.035);
       mesh.box(unit.x-.16,unit.y-.13+swing,.12,.16,.32,'#202b2f');mesh.box(unit.x+.04,unit.y-.13-swing,.12,.16,.32,'#202b2f');
       mesh.box(unit.x-.21,unit.y-.16,.42,.32,.43,c,.28);mesh.box(unit.x-.13,unit.y-.12,.26,.24,.23,'#a4af9e',.71);
       mesh.box(unit.x-.13,unit.y+.122,.26,.018,.065,agent?'#fae191':'#ef9378',.8);
       mesh.box(unit.x+.16,unit.y-.1,.12,.43,.1,'#263337',.55);
+      if(unit.fear>0)overlay.ring(unit.x,unit.y,.44,.07,color('#cf9ce8',1,.85),1.1);
+      if(unit.hp<unit.maxHp) {
+        overlay.line([unit.x-.32,unit.y,1.25],[unit.x+.32,unit.y,1.25],.07,color('#192229'));
+        overlay.line([unit.x-.32,unit.y,1.25],[unit.x-.32+.64*unit.hp/unit.maxHp,unit.y,1.25],.05,color(agent?'#adce95':'#e79777'));
+      }
       if(agent&&game.selected.has(unit.id)) {
         // Always-visible small marker preserves selection behind tall buildings.
         overlay.ring(unit.x,unit.y,.31,.04,color('#f3d780',1,.7),1.07);
@@ -192,8 +216,11 @@ export class Renderer {
     }
     for(const e of game.effects) {
       const life=e.life/e.maxLife;
-      if(e.type==='shot') {mesh.line([e.x,e.y,.6],[e.tx,e.ty,.55],.045,color(e.team==='agent'?'#ffe2a1':'#d97c64',1,life));}
-      else overlay.ring(e.x,e.y,e.type==='pulse'?(1-life)*7:.35+(1-life)*.5,.05,color(e.type==='pulse'?'#accdba':'#e6cb79',1,life));
+      if(e.type==='shot') {
+        mesh.line([e.x,e.y,.6],[e.tx,e.ty,.55],e.weapon==='shotgun'?.11:.045,color(e.team==='agent'?'#ffe2a1':'#d97c64',1,life));
+        mesh.box(e.tx-.06,e.ty-.06,.12,.12,.12,color('#ffe8ae',1,life),.45);
+      }
+      else overlay.ring(e.x,e.y,e.type==='pulse'||e.type==='panic'?(1-life)*7:.35+(1-life)*.5,.05,color(e.type==='panic'?'#ce9ce7':e.type==='pulse'?'#accdba':'#e6cb79',1,life));
     }
     if(hover&&game.phase==='active') mesh.ring(Math.floor(hover.x)+.5,Math.floor(hover.y)+.5,.3,.025,color('#e6dcb3',1,.45));
     this.drawMesh(mesh);gl.disable(gl.DEPTH_TEST);gl.depthMask(false);this.drawMesh(overlay);gl.depthMask(true);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // The simulation has no DOM, graphics, audio, network, or wall-clock dependencies.
+import { createCampaign, WEAPONS, AUG_MODES, MISSIONS, DIFFICULTIES } from './campaign.js';
 export const STEP = 1 / 30;
 export const SIZE = 36;
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -10,12 +11,12 @@ export function random(seed) {
   return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-export function createWorld(seed = 2091) {
+export function createWorld(seed = 2091, layout = 0) {
   const rng = random(seed), blocked = new Uint8Array(SIZE * SIZE), buildings = [];
   for (let by = 0; by < 4; by++) for (let bx = 0; bx < 4; bx++) {
     const x = bx * 9 + 4, y = by * 9 + 4;
     // Open courtyards break up the skyline and leave routes around every block.
-    const parts = (bx + by) % 3 === 0 ? [[0, 0, 3, 5], [4, 0, 1, 3]] : [[0, 0, 5, 3], [0, 4, 3, 1]];
+    const parts = (bx + by + layout) % 3 === 0 ? [[0, 0, 3, 5], [4, 0, 1, 3]] : [[0, 0, 5, 3], [0, 4, 3, 1]];
     for (const [dx, dy, w, d] of parts) {
       const height = 1.3 + rng() * 3.8;
       buildings.push({ x: x + dx, y: y + dy, w, d, height, tone: rng(), sign: buildings.length % 5 });
@@ -92,19 +93,47 @@ const profiles = [
   { name: 'IRON', role: 'SUPPORT', hp: 140, speed: 2.4, damage: 11, range: 6 },
 ];
 
-function guard(id, x, y) {
-  return { id, x, y, home: { x, y }, team: 'guard', hp: 65, maxHp: 65, speed: 1.65, damage: 4, range: 5.8, cooldown: .8, path: [], target: null, think: 0, stun: 0, patrol: 0 };
+function guard(id, x, y, difficulty = DIFFICULTIES.relaxed) {
+  return { id, x, y, prevX: x, prevY: y, home: { x, y }, team: 'guard', hp: difficulty.hp, maxHp: difficulty.hp, speed: difficulty.speed, damage: difficulty.damage, interval: difficulty.interval, range: 5.8, cooldown: .8, path: [], target: null, think: 0, stun: 0, fear: 0, patrol: 0 };
 }
 
-export function createGame(seed = 2091) {
-  const world = createWorld(seed);
-  return {
+export function configureWeapon(agent, research = [], refill = true) {
+  const weapon = WEAPONS[agent.weapon], mode = agent.weapon === 'aug' ? AUG_MODES[agent.mode] : weapon;
+  Object.assign(agent, { magazine: mode.magazine, interval: mode.interval * (research.includes('arms') ? .82 : 1),
+    reloadTime: mode.reloadTime * (research.includes('arms') ? .85 : 1),
+    damage: agent.weapon === 'issued' ? profiles[agent.id].damage : mode.damage,
+    range: (agent.weapon === 'issued' ? profiles[agent.id].range : mode.range) + (research.includes('head') ? 1 : 0) });
+  if(refill)agent.ammo=agent.magazine;
+}
+
+export function createGame(seed, campaign = createCampaign(), missionIndex = campaign.mission) {
+  const mission = MISSIONS[missionIndex] || MISSIONS[0];
+  const difficulty=DIFFICULTIES[campaign.difficulty]||DIFFICULTIES.relaxed;
+  const world = createWorld(seed ?? mission.seed, mission.layout), upgrades = [...campaign.research];
+  const point = ([x,y])=>({x,y,progress:0,done:false});
+  const game = {
+    mission, missionIndex, upgrades, difficulty,
     world, time: 0, phase: 'briefing', paused: false, holdFire: false, selected: new Set([0, 1, 2, 3]),
-    agents: profiles.map((p, id) => ({ ...p, maxHp: p.hp, id, team: 'agent', x: 4.5 + id, y: 29.5, path: [], target: null, cooldown: 0, ammo: 12, reload: 0 })),
-    guards: [[16.5, 29.5], [11.5, 20.5], [20.5, 20.5], [29.5, 20.5], [29.5, 11.5], [24.5, 11.5], [20.5, 6.5], [11.5, 8.5]].map(([x, y], i) => guard(100 + i, x, y)),
-    relay: { x: 11.5, y: 18.5, progress: 0, done: false }, vault: { x: 28.5, y: 11.5, progress: 0, done: false },
-    exit: { x: 5.5, y: 29.5 }, medkits: 2, pulses: 2, kills: 0, effects: [], events: [], log: [], extraction: 0, alert: 0,
+    agents: profiles.map((p, id) => ({ ...p, hp: p.hp+(upgrades.includes('torso')?30:0), maxHp: p.hp+(upgrades.includes('torso')?30:0),
+      speed: p.speed*(upgrades.includes('legs')?1.18:1), armour: upgrades.includes('torso')?.2:0,
+      id, team: 'agent', x: mission.spawn[0]+id, y: mission.spawn[1], prevX: mission.spawn[0]+id, prevY: mission.spawn[1],
+      weapon: campaign.loadout[id], mode: campaign.modes[id], path: [], target: null, cooldown: 0, ammo: 12, reload: 0 })),
+    guards: mission.guards.map(([x,y],i)=>guard(100+i,x,y,difficulty)),
+    relay: point(mission.relay), vault: point(mission.vault), exit: point(mission.exit),
+    medkits: upgrades.includes('med2')?4:2, healAmount: upgrades.includes('med2')?110:upgrades.includes('med1')?85:55,
+    hackSpeed: upgrades.includes('head')?1.3:1,
+    panicEnabled: false, panicCooldown: 0, panicRange: upgrades.includes('panic1')?9:7,
+    panicDuration: (upgrades.includes('panic2')?11:upgrades.includes('panic1')?8:5)*difficulty.fearScale,
+    panicRecharge: upgrades.includes('panic2')?14:upgrades.includes('panic1')?18:24,
+    pulses: 2, kills: 0, effects: [], events: [], log: [], extraction: 0, alert: 0,
   };
+  const occupied=new Set(game.guards.map(e=>Math.floor(e.y)*world.size+Math.floor(e.x)));
+  for(let i=0;i<difficulty.extraGuards;i++) {
+    const anchor=i<2?game.relay:game.vault,point=nearestWalkable(world,anchor.x+(i%2?2:-2),anchor.y+1,occupied);
+    if(point){occupied.add(Math.floor(point.y)*world.size+Math.floor(point.x));game.guards.push(guard(150+i,point.x,point.y,difficulty));}
+  }
+  for(const a of game.agents)configureWeapon(a,upgrades);
+  return game;
 }
 
 export function message(game, text, kind = 'info') {
@@ -114,7 +143,7 @@ export function message(game, text, kind = 'info') {
 
 export function startGame(game) {
   if (game.phase !== 'briefing') return;
-  game.phase = 'active'; message(game, 'Uplink established. Squad deployed in Breakwater.');
+  game.phase = 'active'; message(game, `Uplink established. Squad deployed in ${game.mission.district}.`);
 }
 
 export function selectAgents(game, ids, additive = false) {
@@ -161,7 +190,7 @@ export function medkit(game) {
   if (game.phase !== 'active' || game.paused || game.medkits < 1) return false;
   const hurt = game.agents.filter(a => a.hp > 0 && a.hp < a.maxHp && game.selected.has(a.id));
   if (!hurt.length) return false;
-  for (const a of hurt) a.hp = Math.min(a.maxHp, a.hp + 55);
+  for (const a of hurt) a.hp = Math.min(a.maxHp, a.hp + game.healAmount);
   game.medkits--; message(game, 'Trauma patch applied to selected agents.', 'heal'); return true;
 }
 
@@ -174,8 +203,54 @@ export function pulse(game) {
   game.pulses--; message(game, 'EMP discharged. Nearby security disabled for six seconds.', 'pulse'); return true;
 }
 
-function move(unit, dt) {
-  let remaining = unit.speed * dt;
+export function cycleMode(game) {
+  if(game.phase!=='active')return false;
+  let changed=false;
+  for(const a of game.agents)if(a.hp>0&&game.selected.has(a.id)&&a.weapon==='aug') {
+    a.mode=(a.mode+1)%AUG_MODES.length;configureWeapon(a,game.upgrades,false);
+    // A conversion always costs a complete reload: switching cannot refill for free.
+    a.ammo=0;a.reload=a.reloadTime;a.cooldown=Math.max(a.cooldown,a.interval);changed=true;
+  }
+  if(changed)message(game,'AUG conversion selected. Reloading.','order');return changed;
+}
+export function togglePanic(game) {
+  if(game.phase!=='active')return false;
+  game.panicEnabled=!game.panicEnabled;
+  message(game,game.panicEnabled?'Panic field armed. Visible hostiles will fall back.':'Panic field disengaged.');return true;
+}
+
+// A bounded flood fill chooses a reachable retreat. Walls cannot trap AI in an
+// endlessly retried, unreachable straight-line destination.
+export function retreatPath(world, unit, sources) {
+  const n=world.size,start=Math.floor(unit.y)*n+Math.floor(unit.x),queue=[start],prev=new Map([[start,-1]]),depth=new Map([[start,0]]);
+  const safety=id=>Math.min(...sources.map(a=>Math.hypot(id%n+.5-a.x,Math.floor(id/n)+.5-a.y)));
+  let best=start,score=safety(start);
+  for(let i=0;i<queue.length;i++) {
+    const id=queue[i],x=id%n,y=Math.floor(id/n),d=depth.get(id);
+    if(safety(id)>score){best=id;score=safety(id);}
+    if(d===7)continue;
+    for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]) {
+      const next=(y+dy)*n+x+dx;
+      if(walkable(world,x+dx,y+dy)&&!prev.has(next)){prev.set(next,id);depth.set(next,d+1);queue.push(next);}
+    }
+  }
+  const path=[];for(let id=best;id!==-1;id=prev.get(id))path.push({x:id%n+.5,y:Math.floor(id/n)+.5});
+  path.reverse();if(distance(unit,path[0])<.001)path.shift();return path;
+}
+function updatePanic(game,dt) {
+  game.panicCooldown=Math.max(0,game.panicCooldown-dt);
+  if(!game.panicEnabled||game.panicCooldown>0)return;
+  const sources=game.agents.filter(a=>a.hp>0&&game.selected.has(a.id));
+  const affected=game.guards.filter(e=>e.hp>0&&sources.some(a=>distance(a,e)<=game.panicRange&&lineOfSight(game.world,a,e)));
+  if(!affected.length)return;
+  for(const e of affected){e.fear=game.panicDuration;e.path=retreatPath(game.world,e,sources);e.target=null;}
+  game.panicCooldown=game.panicRecharge;
+  for(const a of sources)game.effects.push({type:'panic',x:a.x,y:a.y,life:1,maxLife:1});
+  message(game,`${affected.length} hostile${affected.length===1?'':'s'} falling back.`, 'panic');
+}
+
+function move(unit, dt, multiplier = 1) {
+  let remaining = unit.speed * dt * multiplier;
   while (remaining > 0 && unit.path.length) {
     const target = unit.path[0], d = distance(unit, target);
     if (d <= remaining) { unit.x = target.x; unit.y = target.y; unit.path.shift(); remaining -= d; }
@@ -184,11 +259,11 @@ function move(unit, dt) {
 }
 
 function fire(game, unit, target) {
-  unit.cooldown = unit.team === 'agent' ? .52 : 1.25;
+  unit.cooldown = unit.interval;
   if (unit.team === 'agent') unit.ammo--;
-  target.hp = Math.max(0, target.hp - unit.damage);
+  target.hp = Math.max(0, target.hp - Math.max(1, Math.round(unit.damage*(1-(target.armour||0)))));
   game.alert = Math.max(game.alert, 10);
-  game.effects.push({ type: 'shot', x: unit.x, y: unit.y, tx: target.x, ty: target.y, life: .13, maxLife: .13, team: unit.team });
+  game.effects.push({ type: 'shot', x: unit.x, y: unit.y, tx: target.x, ty: target.y, life: .13, maxLife: .13, team: unit.team, weapon: unit.weapon });
   game.events.push({ type: 'shot', team: unit.team });
   if (target.hp <= 0) {
     target.path = [];
@@ -202,14 +277,17 @@ export function tick(game, dt = STEP) {
   dt = Math.min(dt, .1); game.time += dt; game.alert = Math.max(0, game.alert - dt);
   game.effects = game.effects.filter(e => (e.life -= dt) > 0);
   const world = game.world;
+  for(const unit of [...game.agents,...game.guards]){unit.prevX=unit.x;unit.prevY=unit.y;}
+  updatePanic(game,dt);
   for (const a of game.agents) {
     if (a.hp <= 0) continue;
     a.cooldown -= dt;
-    if (a.reload > 0) { a.reload -= dt; if (a.reload <= 0) a.ammo = 12; }
-    if (!a.ammo && a.reload <= 0) a.reload = 1.8;
+    if (a.reload > 0) { a.reload -= dt; if (a.reload <= 0) a.ammo = a.magazine; }
+    if (!a.ammo && a.reload <= 0) a.reload = a.reloadTime;
     const requested = game.guards.find(e => e.id === a.target && e.hp > 0);
     const inRange = e => e.hp > 0 && distance(a, e) <= a.range && lineOfSight(world, a, e);
-    const target = requested && inRange(requested) ? requested : game.guards.filter(inRange).sort((p, q) => distance(a, p) - distance(a, q))[0];
+    let target=requested&&inRange(requested)?requested:null;
+    if(!target)for(const e of game.guards)if(inRange(e)&&(!target||distance(a,e)<distance(a,target)))target=e;
     if (requested && !inRange(requested) && !a.path.length && visibleGuard(game, requested)) a.path = findPath(world, a, requested);
     if (!(requested && inRange(requested))) move(a, dt);
     if (!game.holdFire && target && a.cooldown <= 0 && a.reload <= 0 && a.ammo && inRange(target)) fire(game, a, target);
@@ -217,9 +295,16 @@ export function tick(game, dt = STEP) {
   }
   for (const e of game.guards) {
     if (e.hp <= 0) continue;
+    if(e.fear>0) {
+      e.fear=Math.max(0,e.fear-dt);
+      if(e.stun>0)e.stun=Math.max(0,e.stun-dt);else move(e,dt,1.45);
+      if(e.fear===0){e.path=[];e.think=0;e.cooldown=Math.max(e.cooldown,.5);}
+      continue;
+    }
     if (e.stun > 0) { e.stun = Math.max(0, e.stun - dt); continue; }
     e.cooldown -= dt; e.think -= dt;
-    const target = game.agents.filter(a => a.hp > 0 && distance(e, a) < 9 && lineOfSight(world, e, a)).sort((a, b) => distance(e, a) - distance(e, b))[0];
+    let target=null;
+    for(const a of game.agents)if(a.hp>0&&distance(e,a)<9&&lineOfSight(world,e,a)&&(!target||distance(e,a)<distance(e,target)))target=a;
     if (target && distance(e, target) <= e.range) {
       e.path = []; if (e.cooldown <= 0) fire(game, e, target);
     } else {
@@ -238,18 +323,18 @@ export function tick(game, dt = STEP) {
   const living = game.agents.filter(a => a.hp > 0);
   if (!living.length) { game.phase = 'lost'; message(game, 'All agents lost. Contract terminated.', 'danger'); return; }
   const channel = (point, duration) => {
-    if (living.some(a => distance(a, point) < 1.7 && !a.path.length && lineOfSight(world, a, point))) point.progress = Math.min(duration, point.progress + dt);
+    if (living.some(a => distance(a, point) < 1.7 && !a.path.length && lineOfSight(world, a, point))) point.progress = Math.min(duration, point.progress + dt*game.hackSpeed);
     else point.progress = Math.max(0, point.progress - dt * .5);
     if (point.progress >= duration) point.done = true;
   };
   if (!game.relay.done) {
     channel(game.relay, 3);
-    if (game.relay.done) message(game, 'Relay severed. Ledger access unlocked.', 'objective');
+    if (game.relay.done) message(game, `${game.mission.labels[0]} disabled. Next objective unlocked.`, 'objective');
   } else if (!game.vault.done) {
     channel(game.vault, 5);
     if (game.vault.done) {
-      message(game, 'Ledger secured. Return every surviving agent to extraction.', 'objective');
-      game.guards.push(guard(200, 29.5, 2.5), guard(201, 2.5, 20.5), guard(202, 20.5, 29.5));
+      message(game, `${game.mission.labels[1]} secured. Return every surviving agent to extraction.`, 'objective');
+      game.guards.push(...game.mission.reinforcements.map(([x,y],i)=>guard(200+i,x,y,game.difficulty)));
       game.alert = 30;
     }
   }
