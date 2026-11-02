@@ -31,3 +31,15 @@ References, accessed 27 October 2026 (Australia/Adelaide):
 Future contributors should document the source and licence of any new asset
 before adding it. Do not add proprietary original-game data or third-party code
 without an appropriate licence and attribution review.
+
+## v0.3.0 soundtrack and arsenal
+
+The tracker soundtrack in `src/music.js` is newly composed procedural music:
+integer-indexed arpeggios, an original eight-bar sequence, triangle bass, pulse
+lead and seeded noise percussion. It evokes the demoscene/tracker era without
+copying a Purple Motion recording, melody, sample or module. Effects and music
+are synthesised locally; no audio files are downloaded.
+
+Owen Gun, AUG and Over & Under names label fictional game-balance loadouts.
+AUG calibre changes are game conversion modes, not real-world compatibility
+claims. All weapon and agent visuals remain original geometric meshes.

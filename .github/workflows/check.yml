@@ -1,9 +1,8 @@
 name: Correctness
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -37,7 +36,7 @@ jobs:
           # still fails if any required runtime library is absent.
           "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install chromium
       - run: node scripts/build.mjs
-      - name: Play a complete mission in Chromium WebGL2
+      - name: Play the campaign and validate headquarters in Chromium WebGL2
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
       - name: Retain visual evidence
         if: always()

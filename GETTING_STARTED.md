@@ -53,7 +53,7 @@ PR does not change repository administration settings or merge itself.
 
 - **Display link unavailable:** WebGL2 is unavailable or blocked by the device,
   driver, or browser policy. Check browser graphics support. There is no Canvas
-  2D game fallback in v0.1.0.
+  2D game fallback in v0.3.0.
 - **Game paused after switching tabs:** intentional; press Space or Resume.
 - **An agent is behind a building:** its selection marker remains visible.
   Enable Cutaway to see the street clearly.
@@ -63,3 +63,10 @@ PR does not change repository administration settings or merge itself.
 - **No sound:** it is off by default and requires an explicit click.
 - **Graphics context lost:** simulation pauses. If it is restored, resume;
   Reconnect reloads the page and restarts the mission.
+
+## New in v0.3.0
+
+Open Research & Loadout before deploying to spend the 6,000-credit starting
+budget, choose Relaxed or Hostile combat, and configure equipment. WASD pans the
+camera; Q selects the squad. Enable Music for the original procedural soundtrack.
+See [the field manual](INSTRUCTIONS.md) for the full campaign and research tree.

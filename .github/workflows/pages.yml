@@ -11,7 +11,10 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
+  validate:
+    uses: ./.github/workflows/check.yml
   build:
+    needs: validate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -19,8 +22,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node scripts/check.mjs
-      - run: node --test tests/*.test.js
       - run: node scripts/build.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
