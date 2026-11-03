@@ -38,6 +38,14 @@
 - [x] Mission HUD, courier radar/escort controls and debrief challenge results
 - [x] Simulation failure/boundary tests and packaged browser expansion playthroughs
 
+## Slice 5 · delivered in v0.4.1 — Human Resources
+
+- [x] Faceted character silhouettes, articulated limbs and readable equipment
+- [x] Rounded helmets, segmented visors, curved Bulwark shields and courier case
+- [x] Soft contact shadows within existing role geometry budgets
+- [x] Same render batches/shaders with measured work and startup observations
+- [x] Exact city/tactical stream checks and native before/after visual galleries
+
 ## Next
 
 - [ ] In-mission saves and replayable command logs

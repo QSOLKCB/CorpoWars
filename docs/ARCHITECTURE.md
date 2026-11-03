@@ -75,7 +75,18 @@ baseline comparisons, raw measurements and the additional buffer-memory cost.
 New district palettes/rooftop equipment are static meshes. Specialist identity,
 courier effective inputs and hold-zone state are included in dynamic geometry
 signatures. Hidden guards still use the same visibility filter. The original
-four rendering workloads remain exact comparisons against the frozen baseline.
+four rendering workloads retain exact environment and tactical-layer comparisons
+against the frozen baseline; v0.4.1 deliberately replaces their actor bodies.
+
+The v0.4.1 actor bodies and contact shadows intentionally change. Character
+geometry is prepared as finite reusable local templates and streamed into the
+existing dynamic scene buffer. Gait transforms affect only the render mesh.
+Static ground/city, selected-unit rings/routes, traffic, effects, hover and the
+complete overlay stream retain exact comparisons against the frozen reference.
+Native pixel equality uses actorless environment scenes, while separate native
+galleries verify changed characters, role readability and hidden-enemy omission.
+No additional draw pass, shader, GPU buffer or simulation state is introduced.
+See [VISUAL_POLISH.md](VISUAL_POLISH.md) for the role/work budgets and observations.
 
 No textures, downloaded fonts, sprite sheets, model files, image generation,
 sampled audio, or original-game data are used. Traffic is decorative. No fog

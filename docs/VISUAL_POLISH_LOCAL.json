@@ -1,0 +1,605 @@
+{
+  "schemaVersion": 1,
+  "baseline": "QSOLKCB/CorpoWars@677c998c2dded6d962bec3afdd091a81ae4884db",
+  "rendererSha256": "d7439c6838598a361f24728ade77eff892b400f34b8a735df63baf077a56add6",
+  "actorSha256": null,
+  "environment": {
+    "node": "v24.22.1",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor"
+  },
+  "protocol": {
+    "frames": 120,
+    "warmupPairs": 2,
+    "measuredPairs": 7,
+    "order": "alternating",
+    "timingGate": false,
+    "scope": "CPU cold renderer construction, fixture preparation, signatures, mesh generation and modeled Float32 GPU copies. Modules and finite actor templates may already be warm. No GPU, full-game FPS, driver-memory, heap/RSS or universal device performance claim.",
+    "gates": "No increase in draw/attribute/upload/storage calls, uploaded bytes, live vertices or retained modeled GPU capacity per fixed workload. Exact static city, overlays, uniforms/depth/projection/picking. Renderer must not mutate simulation state.",
+    "limits": "Fewer vertices and uploaded bytes do not prove identical GPU fragment cost; shapes, alpha coverage, driver and device behavior require native-browser/device observations.",
+    "cold": "Two process warm-up pairs plus seven alternating measured fresh-process pairs for initial briefing and mixed-role stress. Child clock begins before dynamic imports and includes common fixture/model imports, renderer/template initialization, constructor and first frame. Process creation and OS cache coldness are not measured."
+  },
+  "workloads": [
+    {
+      "name": "breakwater-briefing",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1351352,
+        "uploadCalls": 2,
+        "uploadedBytes": 126336,
+        "attributeCalls": 8,
+        "drawCalls": 420,
+        "retainedBytes": 1351352,
+        "totalLiveVertices": 3134160,
+        "dynamicLiveVertices": 541440,
+        "peakFrameVertices": 34050,
+        "geometryBuilds": 1,
+        "geometryHits": 119
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1351352,
+        "uploadCalls": 2,
+        "uploadedBytes": 124320,
+        "attributeCalls": 8,
+        "drawCalls": 420,
+        "retainedBytes": 1351352,
+        "totalLiveVertices": 3125520,
+        "dynamicLiveVertices": 532800,
+        "peakFrameVertices": 33978,
+        "geometryBuilds": 1,
+        "geometryHits": 119
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "b289d02827fa5b5c5a2f338cfb7235a61d91cb3c2a586d777cf9137b8b99aac0",
+      "overlayOutputSha256": "2dd49f33d3a43106dbb38bf6de41dfe685e15ef0e525d28f421a6b34cb7ae86d",
+      "samplesMs": {
+        "baseline": [
+          5.597957000000008,
+          3.123108000000002,
+          3.500878,
+          3.3247069999999894,
+          2.5072059999999965,
+          3.2225050000000124,
+          2.6988289999999893
+        ],
+        "polished": [
+          5.358642000000003,
+          4.042940999999985,
+          3.9059279999999603,
+          3.2375579999999786,
+          2.9349599999999896,
+          2.89726399999995,
+          2.8784860000000094
+        ]
+      },
+      "medianMs": {
+        "baseline": 3.2225050000000124,
+        "polished": 3.2375579999999786
+      }
+    },
+    {
+      "name": "foundry-paused",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1342616,
+        "uploadCalls": 20,
+        "uploadedBytes": 1085532,
+        "attributeCalls": 8,
+        "drawCalls": 480,
+        "retainedBytes": 1342616,
+        "totalLiveVertices": 3972348,
+        "dynamicLiveVertices": 465228,
+        "peakFrameVertices": 33630,
+        "geometryBuilds": 10,
+        "geometryHits": 110
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1342616,
+        "uploadCalls": 20,
+        "uploadedBytes": 1070076,
+        "attributeCalls": 8,
+        "drawCalls": 480,
+        "retainedBytes": 1342616,
+        "totalLiveVertices": 3965724,
+        "dynamicLiveVertices": 458604,
+        "peakFrameVertices": 33570,
+        "geometryBuilds": 10,
+        "geometryHits": 110
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "9af61368ca0c34b10e5227933ca5f40d1de175ecbc7bf070a4347453309a6ce5",
+      "overlayOutputSha256": "596fdffa9e72d65f1a5c0fdd83e124ef4ba4652d2b1f34841e278c91abd27b4e",
+      "samplesMs": {
+        "baseline": [
+          4.147997999999973,
+          3.551062999999999,
+          3.360590000000002,
+          3.2978769999999713,
+          3.1969780000000014,
+          2.961989000000017,
+          3.254583000000025
+        ],
+        "polished": [
+          3.290497000000016,
+          3.140133999999989,
+          2.9379540000000475,
+          3.3304860000000076,
+          3.2011740000000373,
+          3.1656920000000355,
+          4.190059999999903
+        ]
+      },
+      "medianMs": {
+        "baseline": 3.2978769999999713,
+        "polished": 3.2011740000000373
+      }
+    },
+    {
+      "name": "breakwater-patrol",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1351352,
+        "uploadCalls": 240,
+        "uploadedBytes": 17128608,
+        "attributeCalls": 8,
+        "drawCalls": 480,
+        "retainedBytes": 1351352,
+        "totalLiveVertices": 4156296,
+        "dynamicLiveVertices": 611736,
+        "peakFrameVertices": 34860,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1351352,
+        "uploadCalls": 240,
+        "uploadedBytes": 16896768,
+        "attributeCalls": 8,
+        "drawCalls": 480,
+        "retainedBytes": 1351352,
+        "totalLiveVertices": 4148016,
+        "dynamicLiveVertices": 603456,
+        "peakFrameVertices": 34788,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "23b2e4e2e3154838e124151b0aae15d9721c5dada3949fd47619fba7698e84e5",
+      "overlayOutputSha256": "786d72f7f690dd81ff011e299a885d9ac66e32d016d1458f13fd7ddf20d65d21",
+      "samplesMs": {
+        "baseline": [
+          14.20146699999998,
+          14.104323000000022,
+          14.696289999999976,
+          13.928582000000006,
+          14.549852999999985,
+          13.883305000000064,
+          14.711280999999985
+        ],
+        "polished": [
+          19.445358000000056,
+          15.13399800000002,
+          12.96689600000002,
+          12.845767999999907,
+          18.005003999999985,
+          12.20772199999999,
+          13.017782000000011
+        ]
+      },
+      "medianMs": {
+        "baseline": 14.20146699999998,
+        "polished": 13.017782000000011
+      }
+    },
+    {
+      "name": "spire-combat",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1338584,
+        "uploadCalls": 240,
+        "uploadedBytes": 34987344,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1338584,
+        "totalLiveVertices": 4277148,
+        "dynamicLiveVertices": 1249548,
+        "peakFrameVertices": 40386,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1338584,
+        "uploadCalls": 240,
+        "uploadedBytes": 34182960,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1338584,
+        "totalLiveVertices": 4248420,
+        "dynamicLiveVertices": 1220820,
+        "peakFrameVertices": 40146,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "6c9b8b855880e5be601b9fb5705ebc9c85ac5377b61f293823a9ebb3d3b76e2b",
+      "overlayOutputSha256": "79face089ca3f89bf8b42dc282d363f7d4cd430a66220188f27592081d92acbf",
+      "samplesMs": {
+        "baseline": [
+          22.19448699999998,
+          25.909006999999974,
+          22.183266999999887,
+          21.800809000000072,
+          23.413579000000027,
+          29.13677000000007,
+          23.814307999999983
+        ],
+        "polished": [
+          15.396627999999964,
+          18.695245999999997,
+          20.31675899999982,
+          17.73572399999989,
+          16.898224000000027,
+          18.23660700000005,
+          26.892970000000105
+        ]
+      },
+      "medianMs": {
+        "baseline": 23.413579000000027,
+        "polished": 18.23660700000005
+      }
+    },
+    {
+      "name": "copperline-siege",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1429976,
+        "uploadCalls": 240,
+        "uploadedBytes": 23418192,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1429976,
+        "totalLiveVertices": 4167084,
+        "dynamicLiveVertices": 836364,
+        "peakFrameVertices": 40086,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1429976,
+        "uploadCalls": 240,
+        "uploadedBytes": 22916208,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1429976,
+        "totalLiveVertices": 4149156,
+        "dynamicLiveVertices": 818436,
+        "peakFrameVertices": 39936,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "b7ef9a771f4af9e7ed80969a978bc56648bd751054ec3c1dd3a1e76bc45b84c2",
+      "overlayOutputSha256": "00433cdc862554ba5aaed0e7af6ffd185424c483c676782291f4dd3aa53c31a7",
+      "samplesMs": {
+        "baseline": [
+          18.024983999999904,
+          26.77740300000005,
+          22.848563000000013,
+          17.15838800000006,
+          15.064415000000054,
+          15.223230999999942,
+          15.200918000000229
+        ],
+        "polished": [
+          14.080056000000013,
+          13.578103000000056,
+          16.175321000000167,
+          12.344314999999824,
+          12.754662000000053,
+          13.464684999999918,
+          12.370233000000098
+        ]
+      },
+      "medianMs": {
+        "baseline": 17.15838800000006,
+        "polished": 13.464684999999918
+      }
+    },
+    {
+      "name": "coldstore-courier",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1644008,
+        "uploadCalls": 240,
+        "uploadedBytes": 27218100,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1644008,
+        "totalLiveVertices": 4990755,
+        "dynamicLiveVertices": 972075,
+        "peakFrameVertices": 48915,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1644008,
+        "uploadCalls": 240,
+        "uploadedBytes": 26536356,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1644008,
+        "totalLiveVertices": 4966407,
+        "dynamicLiveVertices": 947727,
+        "peakFrameVertices": 48711,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "7c315958c578364d3e522f4e8012b403b6a47052be5eef5746d9d272bbf89988",
+      "overlayOutputSha256": "e9d58b3a97a8540371dcfabc224471ad48aa15036dee63bad066e7ac3b62c70f",
+      "samplesMs": {
+        "baseline": [
+          23.873951999999917,
+          18.600315000000137,
+          17.31306799999993,
+          17.570790000000216,
+          16.774939999999788,
+          17.26643899999999,
+          19.392409999999927
+        ],
+        "polished": [
+          17.424211999999898,
+          15.36179600000014,
+          15.318711999999778,
+          13.980710000000272,
+          20.360584000000017,
+          14.611765000000105,
+          14.239733999999771
+        ]
+      },
+      "medianMs": {
+        "baseline": 17.570790000000216,
+        "polished": 15.318711999999778
+      }
+    },
+    {
+      "name": "exchange-lockdown",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1495496,
+        "uploadCalls": 240,
+        "uploadedBytes": 28368816,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1495496,
+        "totalLiveVertices": 4555572,
+        "dynamicLiveVertices": 1013172,
+        "peakFrameVertices": 44013,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1495496,
+        "uploadCalls": 240,
+        "uploadedBytes": 27624912,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1495496,
+        "totalLiveVertices": 4529004,
+        "dynamicLiveVertices": 986604,
+        "peakFrameVertices": 43791,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "d02e5c85564d561e0652e05b32c05d0870673c7714d08d16b1ab75adac032bac",
+      "overlayOutputSha256": "e5bc892e735c99cb156588a844e4436077f6ed075389d133b13a73f7a5e713f3",
+      "samplesMs": {
+        "baseline": [
+          22.171929999999975,
+          19.212613000000147,
+          16.908578999999918,
+          21.49912200000017,
+          17.595766000000367,
+          20.77475800000002,
+          22.125225000000228
+        ],
+        "polished": [
+          15.505859999999757,
+          14.154511000000184,
+          14.840222999999696,
+          13.329985999999735,
+          14.84654300000011,
+          16.20209100000011,
+          14.706905000000006
+        ]
+      },
+      "medianMs": {
+        "baseline": 20.77475800000002,
+        "polished": 14.840222999999696
+      }
+    },
+    {
+      "name": "specialist-stress",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1906152,
+        "uploadCalls": 240,
+        "uploadedBytes": 60152736,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1906152,
+        "totalLiveVertices": 6166992,
+        "dynamicLiveVertices": 2148312,
+        "peakFrameVertices": 58776,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "polished": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1906152,
+        "uploadCalls": 240,
+        "uploadedBytes": 57980832,
+        "attributeCalls": 8,
+        "drawCalls": 450,
+        "retainedBytes": 1906152,
+        "totalLiveVertices": 6089424,
+        "dynamicLiveVertices": 2070744,
+        "peakFrameVertices": 58122,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "strictlyFewerDynamicFrames": 120,
+      "staticOutputSha256": "7c315958c578364d3e522f4e8012b403b6a47052be5eef5746d9d272bbf89988",
+      "overlayOutputSha256": "2f5fce3b994bd7a5c07392465d30473458a7aa48ac767b02057267e060ffae28",
+      "samplesMs": {
+        "baseline": [
+          38.50024200000007,
+          36.36937899999975,
+          41.2689919999998,
+          39.10329200000024,
+          35.18644600000016,
+          35.37300300000015,
+          35.64202100000011
+        ],
+        "polished": [
+          27.93639200000007,
+          27.198108000000047,
+          28.250297000000046,
+          30.060590000000047,
+          27.834502000000157,
+          27.67310099999986,
+          40.59201800000028
+        ]
+      },
+      "medianMs": {
+        "baseline": 36.36937899999975,
+        "polished": 27.93639200000007
+      }
+    }
+  ],
+  "coldStart": [
+    {
+      "name": "breakwater-briefing",
+      "samplesMs": {
+        "baseline": [
+          13.520933,
+          14.557119,
+          14.611970999999997,
+          13.589585000000007,
+          12.995784999999998,
+          15.468449999999997,
+          14.756494000000004
+        ],
+        "polished": [
+          16.199630000000006,
+          15.459558000000001,
+          14.084458000000005,
+          15.320630999999999,
+          15.268054,
+          16.665089000000002,
+          15.796537
+        ]
+      },
+      "medianMs": {
+        "baseline": 14.557119,
+        "polished": 15.459558000000001
+      },
+      "counts": {
+        "baseline": {
+          "storageCalls": 4,
+          "storageBytes": 1351352,
+          "uploadCalls": 2,
+          "uploadedBytes": 126336,
+          "attributeCalls": 6,
+          "drawCalls": 3,
+          "retainedBytes": 1351352,
+          "liveVertices": 18186
+        },
+        "polished": {
+          "storageCalls": 4,
+          "storageBytes": 1351352,
+          "uploadCalls": 2,
+          "uploadedBytes": 124320,
+          "attributeCalls": 6,
+          "drawCalls": 3,
+          "retainedBytes": 1351352,
+          "liveVertices": 18114
+        }
+      }
+    },
+    {
+      "name": "specialist-stress",
+      "samplesMs": {
+        "baseline": [
+          17.828194000000003,
+          14.561135,
+          17.260437000000003,
+          15.34046,
+          18.292272000000004,
+          15.644614999999995,
+          17.581376
+        ],
+        "polished": [
+          20.801866000000004,
+          19.328923000000003,
+          18.792278000000003,
+          23.141124000000005,
+          19.027967000000004,
+          27.309924000000002,
+          20.709256999999994
+        ]
+      },
+      "medianMs": {
+        "baseline": 17.260437000000003,
+        "polished": 20.709256999999994
+      },
+      "counts": {
+        "baseline": {
+          "storageCalls": 4,
+          "storageBytes": 1906152,
+          "uploadCalls": 2,
+          "uploadedBytes": 498372,
+          "attributeCalls": 6,
+          "drawCalls": 3,
+          "retainedBytes": 1906152,
+          "liveVertices": 31785
+        },
+        "polished": {
+          "storageCalls": 4,
+          "storageBytes": 1906152,
+          "uploadCalls": 2,
+          "uploadedBytes": 480732,
+          "attributeCalls": 6,
+          "drawCalls": 3,
+          "retainedBytes": 1906152,
+          "liveVertices": 31155
+        }
+      }
+    }
+  ]
+}

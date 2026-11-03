@@ -23,6 +23,7 @@ jobs:
         run: |
           mkdir -p test-results
           node scripts/performance-render.mjs > test-results/renderer-performance.json
+          node scripts/visual-polish-performance.mjs > test-results/visual-polish-performance.json
           node scripts/navigation-performance.mjs > test-results/navigation-performance.json
       - run: node scripts/build.mjs
       - name: Retain performance observations
@@ -48,8 +49,19 @@ jobs:
           # still fails if any required runtime library is absent.
           "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install chromium
       - run: node scripts/build.mjs
-      - name: Compare native renderer pixels with v0.3.0
+      - name: Compare native environment pixels with v0.3.0
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-renderer.cjs
+      - name: Inspect polished actors and enforce native work budgets
+        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-polish.cjs
+      - name: Retain character galleries before the gameplay checks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actor-polish-galleries
+          path: |
+            test-results/polish-*.png
+            test-results/visual-polish-browser.json
+          if-no-files-found: ignore
       - name: Play the campaign and validate headquarters in Chromium WebGL2
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
       - name: Play the expansion and migrate an existing campaign in Chromium WebGL2
@@ -59,5 +71,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: browser-screenshots
-          path: test-results/
+          path: |
+            test-results/
+            !test-results/polish-*.png
+            !test-results/visual-polish-browser.json
           if-no-files-found: ignore
