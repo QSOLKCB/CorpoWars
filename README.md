@@ -15,6 +15,19 @@ server, asset downloads, or build step required to play a hosted copy.
 
 ![CorpoWars: Hostile Takeover rendered in Chromium WebGL2](docs/images/briefing.png)
 
+## VANILLAJS performance upgrade
+
+The renderer now uses direct typed-array geometry, retained scene/overlay
+buffers, WebGL2 vertex arrays and exact reuse during unchanged frames. Stable
+heap navigation, quieter HUD updates and a retained radar background reduce CPU
+work while preserving the campaign, visuals and route choices. No runtime
+dependencies or new game content are introduced.
+
+Local CPU workloads reduced active renderer preparation by about 46%, changing
+combat preparation by 60%, and 1,200-path preparation by 81%. These are measured
+preparation workloads, not FPS claims. See the complete
+[performance contract, raw measurements and memory tradeoff](docs/PERFORMANCE.md).
+
 ## v0.3.0 — Corporate Dissolution
 
 Two new development slices extend the original mission into a three-contract

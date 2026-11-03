@@ -4,8 +4,11 @@ import { createCampaign, decodeCampaign, SAVE_KEY, WEAPONS, AUG_MODES, settleMis
 import { headquarters } from './headquarters.js';
 import { Renderer } from './renderer.js';
 import { Audio } from './audio.js';
+import { writeProperty as prop, writeStyle as style, writeAttribute as attr, writeClass as css, MinimapBackground } from './runtime.js';
 
-const $=id=>document.getElementById(id),canvas=$('battlefield'),sound=new Audio(),keys=new Set();
+const elements=new Map();
+const $=id=>{let element=elements.get(id);if(!element){element=document.getElementById(id);if(element)elements.set(id,element);}return element;};
+const canvas=$('battlefield'),sound=new Audio(),keys=new Set(),agentUI=new Map();
 let campaign=createCampaign(),saveNotice='Progress is saved in this browser.';
 try {const saved=localStorage.getItem(SAVE_KEY);if(saved){const decoded=decodeCampaign(saved);if(decoded)campaign=decoded;else saveNotice='An incompatible campaign save was ignored. A new campaign is ready.';}}catch{saveNotice='Browser storage is unavailable. Progress lasts for this session.';}
 let game=createGame(undefined,campaign),renderer,hover=null,drag=null,last=0,accumulator=0,lastUI=-1,finished=false,graphicsLost=false,helpWasPaused=false,lastLog='',follow=false,panDirection=null;
@@ -24,16 +27,26 @@ for(const a of game.agents) {
   button.innerHTML=`<span class="agent-number">0${a.id+1}</span><span class="agent-info"><strong>${a.name}</strong><small class="weapon-name">${a.role}</small><span class="health-track"><span></span></span><small class="health-text"></small></span>`;
   button.addEventListener('click',event=>{selectAgents(game,[a.id],event.shiftKey);updateUI();});
   button.addEventListener('dblclick',()=>focusSquad());$('agents').append(button);
+  agentUI.set(a.id,{button,health:button.querySelector('.health-track span'),healthText:button.querySelector('.health-text'),weapon:button.querySelector('.weapon-name')});
 }
 const labels={};
 for(const [key,text] of [['relay','01 / RELAY'],['vault','02 / LEDGER'],['exit','03 / EXTRACT']]) {
   const label=document.createElement('span');label.className='world-label';label.textContent=text;$('world-labels').append(label);labels[key]=label;
 }
 
+const objectiveUI={};
+for(const key of ['relay','vault','exit']) {
+  const button=$(`${key}-order`);
+  objectiveUI[key]={button,title:button.querySelector('strong'),copy:button.querySelector('small'),number:button.querySelector('.objective-num'),progress:$(`${key}-progress`)};
+}
+const abilityCounts={medkit:$('medkit').querySelector('span'),pulse:$('pulse').querySelector('span'),panic:$('panic').querySelector('span')};
+
 function focusSquad() {
   if(!renderer)return;
-  let living=game.agents.filter(a=>a.hp>0&&game.selected.has(a.id));if(!living.length)living=game.agents.filter(a=>a.hp>0);if(!living.length)return;
-  renderer.focus({x:living.reduce((sum,a)=>sum+a.x,0)/living.length,y:living.reduce((sum,a)=>sum+a.y,0)/living.length});
+  let x=0,y=0,count=0;
+  for(const a of game.agents)if(a.hp>0&&game.selected.has(a.id)){x+=a.x;y+=a.y;count++;}
+  if(!count)for(const a of game.agents)if(a.hp>0){x+=a.x;y+=a.y;count++;}
+  if(count)renderer.focus({x:x/count,y:y/count});
 }
 function announce(text) {$('announcement').textContent=text;}
 function saveCampaign() {
@@ -59,8 +72,8 @@ function setPause() {
   if(game.phase!=='active'||graphicsLost)return;
   game.paused=!game.paused;accumulator=0;updateUI();announce(game.paused?'Tactical pause. Orders can be issued.':'Simulation resumed.');
 }
-function autoPause() {keys.clear();panDirection=null;cancelDrag();sound.audible(false);if(game.phase==='active'){game.paused=true;accumulator=0;updateUI();}}
-function openManual() {helpWasPaused=game.paused;if(game.phase==='active')game.paused=true;keys.clear();$('manual').showModal();updateUI();}
+function autoPause() {keys.clear();panDirection=null;cancelDrag();last=0;fpsFrames=0;fpsElapsed=0;sound.audible(false);if(game.phase==='active'){game.paused=true;accumulator=0;updateUI();}}
+function openManual() {helpWasPaused=game.paused;if(game.phase==='active')game.paused=true;accumulator=0;keys.clear();panDirection=null;cancelDrag();$('manual').showModal();updateUI();}
 $('manual').addEventListener('close',()=>{if(game.phase==='active'&&!graphicsLost){game.paused=helpWasPaused||document.hidden;updateUI();canvas.focus();}});
 $('debrief').addEventListener('cancel',event=>event.preventDefault());
 $('deploy').addEventListener('click',()=>{if(!renderer||graphicsLost)return;startGame(game);game.paused=false;$('briefing').hidden=true;focusSquad();renderer.zoom=1.15;canvas.focus();updateUI();});
@@ -81,7 +94,7 @@ $('medkit').addEventListener('click',heal);$('pulse').addEventListener('click',e
 $('panic').addEventListener('click',panic);$('aug-mode').addEventListener('click',augMode);
 $('focus').addEventListener('click',focusSquad);$('cutaway').addEventListener('click',cutaway);
 $('quality').addEventListener('click',()=>{if(!renderer)return;renderer.pixelRatio=renderer.pixelRatio===2?1:2;$('quality').setAttribute('aria-pressed',String(renderer.pixelRatio===1));});
-function setFollow(value) {follow=value;$('follow').setAttribute('aria-pressed',String(value));}
+function setFollow(value) {follow=value;attr($('follow'),'aria-pressed',String(value));}
 $('follow').addEventListener('click',()=>{setFollow(!follow);if(follow)focusSquad();});
 for(const [direction,vector] of Object.entries({up:[0,-1],left:[-1,0],down:[0,1],right:[1,0]})) {
   const button=$(`pan-${direction}`);
@@ -115,7 +128,7 @@ canvas.addEventListener('pointermove',event=>{
   if(!drag||drag.id!==event.pointerId)return;
   if(drag.button===1){setFollow(false);renderer.pan(drag.last.x-p.x,drag.last.y-p.y);}
   else if(drag.button===0&&Math.hypot(p.x-drag.start.x,p.y-drag.start.y)>7) {
-    const box=$('selection-box');box.hidden=false;box.style.left=`${Math.min(p.x,drag.start.x)}px`;box.style.top=`${Math.min(p.y,drag.start.y)}px`;box.style.width=`${Math.abs(p.x-drag.start.x)}px`;box.style.height=`${Math.abs(p.y-drag.start.y)}px`;
+    const box=$('selection-box');box.hidden=false;style(box.style,'left',`${Math.min(p.x,drag.start.x)}px`);style(box.style,'top',`${Math.min(p.y,drag.start.y)}px`);style(box.style,'width',`${Math.abs(p.x-drag.start.x)}px`);style(box.style,'height',`${Math.abs(p.y-drag.start.y)}px`);
   }
   drag.last=p;
 });
@@ -173,15 +186,18 @@ window.addEventListener('blur',autoPause);
 window.addEventListener('focus',()=>sound.audible(!document.hidden));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)autoPause();else sound.audible(true);});
 
-const map=$('minimap').getContext('2d');
+const map=$('minimap').getContext('2d'),mapBackground=new MinimapBackground(document.createElement('canvas'));
 function drawMap() {
-  if(!map||!renderer)return;const s=6;map.fillStyle='#10191b';map.fillRect(0,0,216,216);
-  for(const b of game.world.buildings){map.fillStyle='#394846';map.fillRect(b.x*s,b.y*s,b.w*s,b.d*s);}
-  for(const p of [game.relay,game.vault,game.exit]){map.strokeStyle='#91af9e';map.strokeRect(p.x*s-3,p.y*s-3,6,6);}
-  for(const e of game.guards)if(visibleGuard(game,e)){map.fillStyle='#d1816c';map.fillRect(e.x*s-2,e.y*s-2,4,4);}
+  if(!map||!renderer)return;const s=6;mapBackground.draw(map,game);
+  map.fillStyle='#d1816c';
+  for(const e of game.guards)if(visibleGuard(game,e))map.fillRect(e.x*s-2,e.y*s-2,4,4);
   for(const a of game.agents)if(a.hp>0){map.fillStyle=game.selected.has(a.id)?'#ead48a':'#acbca4';map.fillRect(a.x*s-2,a.y*s-2,4,4);}
-  const corners=[[0,0],[renderer.width,0],[renderer.width,renderer.height],[0,renderer.height]].map(([x,y])=>renderer.unproject(x,y));
-  map.strokeStyle='#cfbf7955';map.lineWidth=1;map.beginPath();corners.forEach((p,i)=>i?map.lineTo(p.x*s,p.y*s):map.moveTo(p.x*s,p.y*s));map.closePath();map.stroke();
+  map.strokeStyle='#cfbf7955';map.lineWidth=1;map.beginPath();
+  let p=renderer.unproject(0,0);map.moveTo(p.x*s,p.y*s);
+  p=renderer.unproject(renderer.width,0);map.lineTo(p.x*s,p.y*s);
+  p=renderer.unproject(renderer.width,renderer.height);map.lineTo(p.x*s,p.y*s);
+  p=renderer.unproject(0,renderer.height);map.lineTo(p.x*s,p.y*s);
+  map.closePath();map.stroke();
 }
 function timeText(time){return `${String(Math.floor(time/60)).padStart(2,'0')}:${String(Math.floor(time%60)).padStart(2,'0')}`;}
 function showDebrief() {
@@ -199,53 +215,58 @@ function showDebrief() {
 }
 
 function updateUI() {
-  $('operation-id').textContent=`OPERATION 00${game.missionIndex+1} / ${game.mission.district.toUpperCase()} / ${game.difficulty.name.toUpperCase()}`;
-  $('operation-name').textContent=game.mission.name.toUpperCase();$('mission-directive').textContent=game.mission.brief;
-  $('brief-copy').textContent=game.mission.brief;$('brief-cash').textContent=campaign.cash.toLocaleString('en-AU');
-  $('headquarters').disabled=game.phase!=='briefing';
-  $('clock').textContent=timeText(game.time);
-  $('phase').textContent=game.phase==='briefing'?'AWAITING DEPLOYMENT':game.phase==='won'?'CONTRACT COMPLETE':game.phase==='lost'?'CONTRACT TERMINATED':game.paused?'TACTICAL PAUSE':game.alert>0?'SECURITY ALERT':'OPERATION ACTIVE';
-  $('sector-state').textContent=game.alert>0?'SECURITY CONTACT / WEAPONS LIVE':game.mission.district.toUpperCase();
-  $('pause-banner').hidden=!game.paused||game.phase!=='active'||graphicsLost;
-  $('pause').innerHTML=game.paused?'RESUME <kbd>SPACE</kbd>':'PAUSE <kbd>SPACE</kbd>';
-  const active=game.phase==='active';$('pause').disabled=!active;
-  $('hold-fire').textContent=game.holdFire?'HOLDING FIRE':'FIRE AT WILL';$('hold-fire').setAttribute('aria-pressed',String(game.holdFire));$('hold-fire').disabled=!active;
-  $('medkit').querySelector('span').textContent=String(game.medkits).padStart(2,'0');$('medkit').disabled=!active||game.medkits===0||game.paused;
-  $('pulse').querySelector('span').textContent=String(game.pulses).padStart(2,'0');$('pulse').disabled=!active||game.pulses===0||game.paused;
-  $('panic').setAttribute('aria-pressed',String(game.panicEnabled));$('panic').disabled=!active;
-  $('panic').querySelector('span').textContent=game.panicCooldown>0?`${Math.ceil(game.panicCooldown)}s`:game.panicEnabled?'ARMED':'OFF';
-  $('aug-mode').disabled=!active||!game.agents.some(a=>a.hp>0&&game.selected.has(a.id)&&a.weapon==='aug');
+  prop($('operation-id'),'textContent',`OPERATION 00${game.missionIndex+1} / ${game.mission.district.toUpperCase()} / ${game.difficulty.name.toUpperCase()}`);
+  prop($('operation-name'),'textContent',game.mission.name.toUpperCase());prop($('mission-directive'),'textContent',game.mission.brief);
+  prop($('brief-copy'),'textContent',game.mission.brief);prop($('brief-cash'),'textContent',campaign.cash.toLocaleString('en-AU'));
+  prop($('headquarters'),'disabled',game.phase!=='briefing');
+  prop($('clock'),'textContent',timeText(game.time));
+  prop($('phase'),'textContent',game.phase==='briefing'?'AWAITING DEPLOYMENT':game.phase==='won'?'CONTRACT COMPLETE':game.phase==='lost'?'CONTRACT TERMINATED':game.paused?'TACTICAL PAUSE':game.alert>0?'SECURITY ALERT':'OPERATION ACTIVE');
+  prop($('sector-state'),'textContent',game.alert>0?'SECURITY CONTACT / WEAPONS LIVE':game.mission.district.toUpperCase());
+  prop($('pause-banner'),'hidden',!game.paused||game.phase!=='active'||graphicsLost);
+  prop($('pause'),'innerHTML',game.paused?'RESUME <kbd>SPACE</kbd>':'PAUSE <kbd>SPACE</kbd>');
+  const active=game.phase==='active';prop($('pause'),'disabled',!active);
+  prop($('hold-fire'),'textContent',game.holdFire?'HOLDING FIRE':'FIRE AT WILL');attr($('hold-fire'),'aria-pressed',String(game.holdFire));prop($('hold-fire'),'disabled',!active);
+  prop(abilityCounts.medkit,'textContent',String(game.medkits).padStart(2,'0'));prop($('medkit'),'disabled',!active||game.medkits===0||game.paused);
+  prop(abilityCounts.pulse,'textContent',String(game.pulses).padStart(2,'0'));prop($('pulse'),'disabled',!active||game.pulses===0||game.paused);
+  attr($('panic'),'aria-pressed',String(game.panicEnabled));prop($('panic'),'disabled',!active);
+  prop(abilityCounts.panic,'textContent',game.panicCooldown>0?`${Math.ceil(game.panicCooldown)}s`:game.panicEnabled?'ARMED':'OFF');
+  prop($('aug-mode'),'disabled',!active||!game.agents.some(a=>a.hp>0&&game.selected.has(a.id)&&a.weapon==='aug'));
   for(const a of game.agents) {
-    const b=$(`agent-${a.id}`);b.classList.toggle('selected',game.selected.has(a.id));b.classList.toggle('dead',a.hp<=0);b.setAttribute('aria-pressed',String(game.selected.has(a.id)));b.disabled=a.hp<=0;
-    b.querySelector('.health-track span').style.width=`${a.hp/a.maxHp*100}%`;b.querySelector('.health-text').textContent=a.hp<=0?'OFFLINE':`${a.hp} HP / ${a.reload>0?'RELOAD':`${a.ammo}/${a.magazine}`}`;
-    b.querySelector('.weapon-name').textContent=a.weapon==='aug'?`AUG · ${AUG_MODES[a.mode].name}`:WEAPONS[a.weapon].name;
-    b.setAttribute('aria-label',`${a.name}, ${a.role}, ${a.hp} health${game.selected.has(a.id)?', selected':''}`);
+    const ui=agentUI.get(a.id),b=ui.button,selected=game.selected.has(a.id);
+    css(b,'selected',selected);css(b,'dead',a.hp<=0);attr(b,'aria-pressed',String(selected));prop(b,'disabled',a.hp<=0);
+    style(ui.health.style,'width',`${a.hp/a.maxHp*100}%`);prop(ui.healthText,'textContent',a.hp<=0?'OFFLINE':`${a.hp} HP / ${a.reload>0?'RELOAD':`${a.ammo}/${a.magazine}`}`);
+    prop(ui.weapon,'textContent',a.weapon==='aug'?`AUG · ${AUG_MODES[a.mode].name}`:WEAPONS[a.weapon].name);
+    attr(b,'aria-label',`${a.name}, ${a.role}, ${a.hp} health${selected?', selected':''}`);
   }
   const objective=game.relay.done?game.vault.done?'exit':'vault':'relay';
   for(const key of ['relay','vault','exit']) {
-    const done=key==='exit'?game.phase==='won':game[key].done;
-    if(key!=='exit'){$(`${key}-order`).querySelector('strong').textContent=game.mission.objectives[key==='relay'?0:1];$(`${key}-order`).querySelector('small').textContent=game.mission.labels[key==='relay'?0:1];labels[key].textContent=`${key==='relay'?'01':'02'} / ${game.mission.labels[key==='relay'?0:1]}`;}
-    $(`${key}-order`).classList.toggle('current',key===objective&&!done);$(`${key}-order`).classList.toggle('done',done);$(`${key}-order`).disabled=!active;
-    $(`${key}-order`).querySelector('.objective-num').textContent=done?'✓':key==='relay'?'01':key==='vault'?'02':'03';
+    const done=key==='exit'?game.phase==='won':game[key].done,ui=objectiveUI[key];
+    if(key!=='exit'){
+      const index=key==='relay'?0:1;
+      prop(ui.title,'textContent',game.mission.objectives[index]);prop(ui.copy,'textContent',game.mission.labels[index]);prop(labels[key],'textContent',`${key==='relay'?'01':'02'} / ${game.mission.labels[index]}`);
+    }
+    css(ui.button,'current',key===objective&&!done);css(ui.button,'done',done);prop(ui.button,'disabled',!active);
+    prop(ui.number,'textContent',done?'✓':key==='relay'?'01':key==='vault'?'02':'03');
     const percent=key==='relay'?game.relay.progress/3:key==='vault'?game.vault.progress/5:game.extraction/2;
-    $(`${key}-progress`).style.width=`${Math.min(100,percent*100)}%`;
+    style(ui.progress.style,'width',`${Math.min(100,percent*100)}%`);
   }
   const logKey=game.log.map(l=>`${l.time}:${l.text}`).join('|');
   if(lastLog!==logKey){lastLog=logKey;$('comms').replaceChildren(...game.log.slice(0,3).map(l=>{const el=document.createElement('li');el.textContent=l.text;return el;}));if(game.log[0])announce(game.log[0].text);}
-  const selected=game.agents.filter(a=>a.hp>0&&game.selected.has(a.id)).length;
-  $('context-hint').textContent=active?`${selected} SELECTED / WASD CAMERA / Q SELECT ALL / SPACE PAUSE`:'SELECT · RESEARCH · DEPLOY';
+  let selected=0;for(const a of game.agents)if(a.hp>0&&game.selected.has(a.id))selected++;
+  prop($('context-hint'),'textContent',active?`${selected} SELECTED / WASD CAMERA / Q SELECT ALL / SPACE PAUSE`:'SELECT · RESEARCH · DEPLOY');
   if(game.phase==='won'||game.phase==='lost')showDebrief();
 }
 function updateLabels() {
   for(const key of ['relay','vault','exit']) {
     const p=game[key],s=renderer.project(p.x,p.y,key==='exit'?.2:1.2),label=labels[key];
-    label.style.left=`${s.x}px`;label.style.top=`${s.y}px`;
-    label.hidden=s.x<0||s.y<40||s.x>renderer.width||s.y>renderer.height-30;
-    label.classList.toggle('inactive',key==='relay'?game.relay.done:key==='vault'?!game.relay.done||game.vault.done:!game.vault.done);
+    style(label.style,'left',`${s.x}px`);style(label.style,'top',`${s.y}px`);
+    prop(label,'hidden',s.x<0||s.y<40||s.x>renderer.width||s.y>renderer.height-30);
+    css(label,'inactive',key==='relay'?game.relay.done:key==='vault'?!game.relay.done||game.vault.done:!game.vault.done);
   }
 }
 function frame(now) {
-  const elapsed=(now-last)/1000||0,delta=Math.min(elapsed,.1);last=now;
+  if(document.hidden){last=0;requestAnimationFrame(frame);return;}
+  const elapsed=last?Math.max(0,(now-last)/1000):0,delta=Math.min(elapsed,.1);last=now;
   if(renderer&&!graphicsLost) {
     const speed=400*delta;
     const dx=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'))+(panDirection?.[0]||0);
@@ -256,7 +277,7 @@ function frame(now) {
     for(const event of game.events)sound.play(event.type);game.events=[];
     sound.mood(game.phase!=='active'?'briefing':game.paused?'paused':game.alert>0?'combat':'patrol');
     renderer.render(game,hover,game.phase==='active'&&!game.paused?accumulator/STEP:1,delta);updateLabels();
-    fpsFrames++;fpsElapsed+=elapsed;if(fpsElapsed>=1){$('render-status').textContent=`WEBGL2 / ${Math.round(fpsFrames/fpsElapsed)} FPS`;fpsFrames=0;fpsElapsed=0;}
+    fpsFrames++;fpsElapsed+=elapsed;if(fpsElapsed>=1){prop($('render-status'),'textContent',`WEBGL2 / ${Math.round(fpsFrames/fpsElapsed)} FPS`);fpsFrames=0;fpsElapsed=0;}
     if(now-lastUI>100){updateUI();drawMap();lastUI=now;}
   }
   requestAnimationFrame(frame);

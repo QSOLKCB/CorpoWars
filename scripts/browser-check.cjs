@@ -111,6 +111,23 @@ const server=createServer(async(req,res)=>{
     await noStorage.addInitScript(()=>{Storage.prototype.getItem=Storage.prototype.setItem=()=>{throw new Error('disabled');};});
     await noStorage.goto(url);await noStorage.locator('#headquarters').click();await noStorage.locator('#equip-0-owen').click();
     assert.equal(await noStorage.locator('#cash').textContent(),'5,300');assert.match(await noStorage.locator('#save-status').textContent(),/unavailable/);
+    // Recreated renderer resources must display the same paused operation after
+    // context restoration, then continue through the normal resume control.
+    const restored=await browser.newPage(),restoreErrors=[];
+    restored.on('pageerror',error=>restoreErrors.push(String(error)));
+    await restored.goto(url);await restored.locator('#deploy').click();await restored.locator('#pause').click();
+    await restored.evaluate(()=>{
+      const gl=document.getElementById('battlefield').getContext('webgl2');
+      window.loseExtension=gl.getExtension('WEBGL_lose_context');
+      if(!window.loseExtension)throw Error('Context-loss extension unavailable');
+      window.loseExtension.loseContext();
+    });
+    await restored.locator('#graphics-error').waitFor({state:'visible'});
+    await restored.evaluate(()=>window.loseExtension.restoreContext());
+    await restored.locator('#graphics-error').waitFor({state:'hidden'});
+    assert.equal(await restored.locator('#pause-banner').isVisible(),true);
+    await restored.locator('#pause').click();assert.equal(await restored.locator('#pause-banner').isVisible(),false);
+    assert.deepEqual(restoreErrors,[]);await restored.close();
     const unsupported=await browser.newPage();
     await unsupported.addInitScript(()=>{const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return type==='webgl2'?null:get.call(this,type,...args);};});
     await unsupported.goto(url);await unsupported.locator('#graphics-error').waitFor({state:'visible'});assert.equal(await unsupported.locator('#deploy').isEnabled(),false);
