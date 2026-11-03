@@ -6,6 +6,13 @@ retained their v0.3.0 content. The 30 Hz simulation and interpolation remain int
 The later v0.4.0 expansion adds districts, enemies and mission types; its renderer
 still runs the original-scene equality checks and keeps the same reuse model.
 
+This document's full-geometry/pixel equality and timings describe PR #3.
+In v0.4.1, actor bodies and their contact shadows intentionally change. Current
+legacy stream comparisons retain exact environment and tactical layers; native
+legacy pixel comparisons use actorless scenes. The new eight-workload budgets,
+character galleries, cold-start costs and measurements are documented in
+[VISUAL_POLISH.md](VISUAL_POLISH.md). The frozen references remain unchanged.
+
 Donor: [QSOLKCB/VANILLAJS](https://github.com/QSOLKCB/VANILLAJS/tree/1f965f4e5b6669de0f954e3a39b11aa679e56720),
 commit `1f965f4e5b6669de0f954e3a39b11aa679e56720`, especially its
 `modules/render-webgl`, `modules/navigation` and `docs/OPTIMIZATION.md`.

@@ -9,13 +9,28 @@ import {Renderer} from '../src/renderer.js';
 import {modelCanvas} from './performance-render-model.mjs';
 import {renderFixture,WORKLOADS,FRAME_COUNT} from './performance-render-fixtures.mjs';
 
+// The actor bodies/shadows intentionally change in v0.4.1. Keep the frozen
+// v0.3 baseline for every untouched city/tactical stream, without hiding the
+// actual actors from the timed or counted workloads.
+function preservedStreams(draws,game,hover) {
+  let prefix=648+(game.mission.kind==='hold'&&!game.vault.done?192:0);
+  for(const a of game.agents)if(a.hp>0&&game.selected.has(a.id))prefix+=192+a.path.length*6;
+  const suffix=324+game.effects.filter(e=>e.type==='shot').length*24+(hover&&game.phase==='active'?192:0);
+  return draws.map((draw,index)=>{
+    if(index!==draws.length-2)return draw;
+    const {count,values,...state}=draw;
+    assert.ok(count>=prefix+suffix,'actor body span must fit between tactical prefix and effects suffix');
+    return {...state,scope:'non-actor-scene',prefix:values.subarray(0,prefix*7),suffix:values.subarray(values.length-suffix*7)};
+  });
+}
+
 export function runRendererWorkload(name,Implementation,{capture=false}={}) {
   globalThis.devicePixelRatio=1.5;
   const model=modelCanvas({capture}),fixture=renderFixture(name),renderer=new Implementation(model.canvas,fixture.game);
   const frames=[];
   for(let index=0;index<FRAME_COUNT;index++){
     fixture.frame(index,renderer,model);
-    if(capture)frames.push(model.draws.splice(0));
+    if(capture)frames.push(preservedStreams(model.draws.splice(0),fixture.game,name!=='briefing-camera'));
   }
   const counts={frames:FRAME_COUNT,...model.stats,retainedBytes:model.retainedBytes(),
     geometryBuilds:renderer.stats?.geometryBuilds??FRAME_COUNT,geometryHits:renderer.stats?.geometryHits??0};
@@ -28,13 +43,13 @@ export function runRendererWorkload(name,Implementation,{capture=false}={}) {
 export function rendererParity(name) {
   const baseline=runRendererWorkload(name,BaselineRenderer,{capture:true});
   const optimized=runRendererWorkload(name,Renderer,{capture:true});
-  assert.deepEqual(optimized.frames,baseline.frames,`${name}: all live Float32 values, ordering, camera uniforms and depth state must match`);
+  assert.deepEqual(optimized.frames,baseline.frames,`${name}: static city, routes, selection, overlays, traffic, effects, hover, camera and depth state must match`);
   const digest=createHash('sha256');
   for(const frame of optimized.frames)for(const draw of frame){
-    const {values,...state}=draw;digest.update(JSON.stringify(state));
-    digest.update(new Uint8Array(values.buffer,values.byteOffset,values.byteLength));
+    const {values,prefix,suffix,...state}=draw;digest.update(JSON.stringify(state));
+    for(const data of values?[values]:[prefix,suffix])digest.update(new Uint8Array(data.buffer,data.byteOffset,data.byteLength));
   }
-  return {name,outputSha256:digest.digest('hex'),baseline:baseline.counts,optimized:optimized.counts};
+  return {name,parityScope:'all non-actor geometry and draw state; actor bodies/shadows intentionally excluded',unchangedOutputSha256:digest.digest('hex'),baseline:baseline.counts,optimized:optimized.counts};
 }
 
 const median=values=>[...values].sort((a,b)=>a-b)[Math.floor(values.length/2)];
@@ -57,7 +72,7 @@ export function rendererEvidence() {
     environment:{runtime:process.version,platform:platform(),arch:arch(),cpu:cpus()[0]?.model},
     protocol:{frames:FRAME_COUNT,warmupPairs:2,measuredPairs:7,order:'alternating',timingGate:false,
       scope:'Cold renderer construction plus CPU geometry/signatures/Float32 model copies. Excludes GPU/driver, browser layout, full game frame rate and memory measurement.',
-      metrics:'uploadCalls/uploadedBytes count bufferSubData only (dynamic geometry). storageCalls/storageBytes count bufferData calls and requested bytes including static city. retainedBytes is current model buffer capacity, not driver memory. Draw parity compares live Float32 values, draw order, camera uniforms and depth state.'},workloads};
+      metrics:'Timings/work counts include full actor scenes. uploadCalls/uploadedBytes count bufferSubData only. storageCalls/storageBytes include static city bufferData calls. retainedBytes is modeled capacity, not driver memory. Exact parity covers static draws, main prefix/suffix and entire overlays; only character body/shadow geometry is intentionally excluded.'},workloads};
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)console.log(JSON.stringify(rendererEvidence(),null,2));

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Native WebGL2 pixel parity against the frozen v0.3.0 renderer. Test-only.
+// Native WebGL2 environment pixel parity against the frozen v0.3.0 renderer.
+// Actors intentionally change; full actor/route/overlay budgets are checked by
+// visual-polish-performance.mjs, with native galleries in browser-polish.cjs.
 const {chromium}=require('playwright');
 const {createServer}=require('node:http');
 const {readFile,mkdir,writeFile}=require('node:fs/promises');
@@ -76,9 +78,14 @@ const server=createServer(async(req,res)=>{
         }};
       }
       const results=[];
+      function environmentOnly(renderer){
+        const render=renderer.render;
+        renderer.render=function(game,...args){return render.call(this,{...game,agents:[],guards:[],courier:undefined},...args);};
+        return renderer;
+      }
       for(const name of WORKLOADS){
         const oldSurface=surface(),newSurface=surface(),oldFixture=renderFixture(name),newFixture=renderFixture(name);
-        const oldRenderer=new Reference(oldSurface.canvas,oldFixture.game),newRenderer=new Candidate(newSurface.canvas,newFixture.game);
+        const oldRenderer=environmentOnly(new Reference(oldSurface.canvas,oldFixture.game)),newRenderer=environmentOnly(new Candidate(newSurface.canvas,newFixture.game));
         // Both density settings, cutaway, camera, resize, paused orders, terminal
         // state, changing effects and interpolated movement use the same fixtures
         // as the independent Float32 work-count comparison.
@@ -89,15 +96,15 @@ const server=createServer(async(req,res)=>{
           if(a.length!==b.length)throw Error(`${name}/${frame}: framebuffer sizes differ`);
           for(let i=0;i<a.length;i++)if(a[i]!==b[i])throw Error(`${name}/${frame}: pixel byte ${i}, old ${a[i]}, new ${b[i]}`);
         }
-        results.push({name,frames:FRAME_COUNT,exactPixels:true});
+        results.push({name,frames:FRAME_COUNT,exactEnvironmentPixels:true});
         oldRenderer.dispose();newRenderer.dispose();
         for(const surface of [oldSurface,newSurface])surface.gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
-      return {results,frames:results.reduce((n,r)=>n+r.frames,0),minimapCases,unchangedStyleWrites:0,userAgent:navigator.userAgent};
+      return {results,frames:results.reduce((n,r)=>n+r.frames,0),scope:'actorless city/objectives/traffic/effects; full tactical stream parity is tested separately',minimapCases,unchangedStyleWrites:0,userAgent:navigator.userAgent};
     });
     assert.deepEqual(errors,[]);assert.equal(result.frames,480);
     await mkdir('test-results',{recursive:true});
     await writeFile('test-results/renderer-pixel-parity.json',JSON.stringify(result,null,2)+'\n');
-    console.log(`PASS: exact native WebGL2 pixel parity for ${result.frames} frames, ${result.minimapCases} minimap states, and normalized CSS reuse/repair.`);
+    console.log(`PASS: exact native WebGL2 environment pixel parity for ${result.frames} frames, ${result.minimapCases} minimap states, and normalized CSS reuse/repair.`);
   }finally{if(browser)await browser.close();await new Promise(done=>server.close(done));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -2,6 +2,180 @@
 // Original geometry, rendered as coloured triangles with native WebGL2.
 import { clamp, random, visibleGuard } from './simulation.js';
 
+
+// Original faceted character models. Four finite geometry shapes and fifteen
+// finite material variants are compiled lazily; poses use the existing scene buffer.
+const TAU=Math.PI*2;
+const MATERIAL={boots:'#243139',limbs:'#3b4a51',metal:'#364950',skin:'#c5b9a3'};
+const accents=['#f0cc7d','#9fd5be','#92cbd7','#d9b492'];
+const rgb=hex=>{const n=Number.parseInt(hex.slice(1),16);return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255,1];};
+const tint=(hex,light=1,alpha=1)=>{
+  if(typeof hex==='number')return [0,0,0,alpha,hex,light];
+  const c=rgb(hex);return [c[0]*light,c[1]*light,c[2]*light,alpha,-1,1];
+};
+class Model {
+  values=[];slots=[];lights=[];groups=[];
+  vertex(p,c,group=0){this.values.push(p[0],p[1],p[2],c[0],c[1],c[2],c[3]);this.slots.push(c[4]);this.lights.push(c[5]);this.groups.push(group);}
+  tri(a,b,c,color,group=0){this.vertex(a,color,group);this.vertex(b,color,group);this.vertex(c,color,group);}
+  quad(a,b,c,d,color,group=0){this.tri(a,b,c,color,group);this.tri(a,c,d,color,group);}
+  cap(points,color,group=0){for(let i=1;i<points.length-1;i++)this.tri(points[0],points[i],points[i+1],color,group);}
+  // Fixed isometric projection sees the +X/+Y sides and top. The back and
+  // underside never add a visible face, so they consume no streamed vertices.
+  frustum(lower,upper,hex,group=0,edges=[2,3,4,5],cap=true){
+    const lights=[.71,.91,.83,.67];
+    for(let j=0;j<edges.length;j++){
+      const i=edges[j],next=(i+1)%lower.length;
+      this.quad(lower[i],lower[next],upper[next],upper[i],tint(hex,lights[j]),group);
+    }
+    if(cap)this.cap(upper,tint(hex,1.08),group);
+  }
+}
+function bevelRing(cx,cy,z,w,d,b){
+  return [[cx-w+b,cy-d,z],[cx+w-b,cy-d,z],[cx+w,cy-d+b,z],[cx+w,cy+d-b,z],
+    [cx+w-b,cy+d,z],[cx-w+b,cy+d,z],[cx-w,cy+d-b,z],[cx-w,cy-d+b,z]];
+}
+function ellipseRing(z,rx,ry){return Array.from({length:8},(_,i)=>{const a=(-3+i)*Math.PI/4;return [Math.cos(a)*rx,Math.sin(a)*ry,z];});}
+function bootRing(x,z,w,front,back){return [[x-w,-back,z],[x+w,-back,z],[x+w,front-.035,z],[x+w-.025,front,z],[x-w+.025,front,z],[x-w,front-.035,z]];}
+function box(m,x,y,z,w,d,h,hex,group=0){
+  const a=[x,y,z+h],b=[x+w,y,z+h],c=[x+w,y+d,z+h],e=[x,y+d,z+h];
+  m.quad(a,b,c,e,tint(hex,1.08),group);
+  m.quad([x,y+d,z],[x+w,y+d,z],c,e,tint(hex,.71),group);
+  m.quad([x+w,y,z],[x+w,y+d,z],c,b,tint(hex,.9),group);
+}
+function makeModel(kind){
+  const body=0,accent=1,helmet=2,bulky=kind==='bulwark';
+  const m=new Model(),courier=kind==='courier';
+  // A twelve-triangle alpha-falloff contact shadow replaces the old 192-vertex
+  // almost-filled ring. The saved work funds the curved body and limb detail.
+  for(let i=0;i<12;i++){
+    const a=i/12*TAU,b=(i+1)/12*TAU;
+    m.vertex([0,0,.025],tint('#050d0e',1,.55));
+    m.vertex([Math.cos(a)*.34,Math.sin(a)*.24,.025],tint('#050d0e',1,0));
+    m.vertex([Math.cos(b)*.34,Math.sin(b)*.24,.025],tint('#050d0e',1,0));
+  }
+  // Bevelled toe profiles, tapered shins, and separate hip/shoulder pose groups.
+  for(let side=0;side<2;side++){
+    const x=side?.105:-.105,group=side+1;
+    m.frustum(bootRing(x,.035,.065,.145,.055),bootRing(x,.34,.052,.055,.055),MATERIAL.boots,group,[1,2,3]);
+  }
+  const shoulder=bulky?.255:.218;
+  m.frustum(bevelRing(0,0,.32,.155,.11,.04),bevelRing(0,0,.70,shoulder,.155,.065),body);
+  for(let side=0;side<2;side++){
+    const sign=side?1:-1,x=sign*(shoulder+.035),group=side+3;
+    // Sloped shoulder to a forward hand: the elbow outline is read as a
+    // separate, articulated limb rather than a rectangular torso extension.
+    const lower=[[x-.047,.085,.445],[x+.047,.085,.445],[x+.047,.175,.445],[x-.047,.175,.445]];
+    const upper=[[x-.064,-.06,.665],[x+.064,-.06,.665],[x+.064,.065,.665],[x-.064,.065,.665]];
+    m.frustum(lower,upper,body,group,[1,2]);
+  }
+  const low=ellipseRing(.715,.116,.102),rim=ellipseRing(.955,.14,.125),crown=ellipseRing(1.035,.091,.081);
+  m.frustum(low,rim,courier?MATERIAL.skin:helmet,0,[2,3,4,5],false);
+  m.frustum(rim,crown,courier?'#4c4a43':helmet);
+  if(!courier){
+    const face=[[-.112,.069],[-.043,.125],[.043,.125],[.112,.069]];
+    for(let i=0;i<3;i++)m.quad([face[i][0],face[i][1]+.003,.892],[face[i+1][0],face[i+1][1]+.003,.892],
+      [face[i+1][0],face[i+1][1]+.003,.95],[face[i][0],face[i][1]+.003,.95],tint(accent,[.74,1.15,.96][i]));
+  }
+  m.quad([-.12,.145,.385],[.12,.145,.385],[.12,.15,.42],[-.12,.15,.42],tint(accent,.86));
+  if(!courier){
+    box(m,.18,.095,.505,.075,.34,.09,MATERIAL.metal,4);
+    m.quad([.194,.435,.524],[.24,.435,.524],[.234,.565,.55],[.2,.565,.55],tint('#84948f'),4);
+  }
+  if(kind==='bulwark'){
+    // Curved octagonal shield: recessed outer rim and a raised central spine.
+    const edge=[[-.23,.24,.29],[.23,.24,.29],[.31,.205,.40],[.31,.205,.75],[.22,.24,.87],[-.22,.24,.87],[-.31,.205,.75],[-.31,.205,.40]];
+    for(let i=0;i<edge.length;i++)m.tri([0,.305,.59],edge[i],edge[(i+1)%edge.length],tint('#53616b',[.75,.9,.86,.98,1.12,.93,.7,.72][i]));
+    m.quad([-.16,.286,.66],[.16,.286,.66],[.14,.291,.705],[-.14,.291,.705],tint(accent));
+    m.quad([-.21,.24,.87],[.22,.24,.87],[.21,.26,.845],[-.20,.26,.845],tint('#a7b1a7'));
+    m.quad([-.29,-.04,.7],[-.16,-.04,.7],[-.16,.11,.735],[-.29,.11,.71],tint(body,1.1));
+    m.quad([.16,-.04,.7],[.29,-.04,.7],[.29,.11,.71],[.16,.11,.735],tint(body,1.1));
+  }else if(kind==='marksman'){
+    m.quad([.198,.54,.53],[.233,.54,.53],[.228,.85,.55],[.203,.85,.55],tint('#72828b'),4);
+    m.quad([.233,.54,.53],[.228,.85,.55],[.228,.85,.575],[.233,.54,.57],tint('#3d4953'),4);
+    m.quad([.184,.245,.605],[.244,.245,.605],[.244,.37,.605],[.184,.37,.605],tint('#8a93a5'),4);
+    m.quad([.184,.37,.605],[.244,.37,.605],[.235,.38,.66],[.193,.38,.66],tint(accent),4);
+  }else if(courier){
+    // Chamfered hard case and a narrow shoulder strap. No weapon on the witness.
+    const front=[[.255,.18,.29],[.40,.18,.29],[.43,.18,.32],[.43,.18,.48],[.40,.18,.51],[.255,.18,.51]];
+    m.cap(front,tint('#c8b68a'),4);
+    m.quad([.255,.08,.51],[.40,.08,.51],[.40,.18,.51],[.255,.18,.51],tint('#e2d0a6'),4);
+    m.quad([.43,.08,.32],[.43,.18,.32],[.43,.18,.48],[.43,.08,.48],tint('#8c8066'),4);
+    m.quad([-.11,.16,.65],[-.073,.168,.65],[.112,.155,.39],[.073,.16,.39],tint('#4c7277'));
+  }
+  const runs=[];let start=0,group=m.groups[0];
+  for(let i=1;i<=m.groups.length;i++)if(i===m.groups.length||m.groups[i]!==group){
+    runs.push(start*7,i*7,group);start=i;group=m.groups[i];
+  }
+  return {data:new Float32Array(m.values),slots:new Int8Array(m.slots),lights:new Float64Array(m.lights),runs:new Int32Array(runs)};
+}
+// No pose or historical-frame cache: these arrays have exactly 4 and 15 slots.
+const actorShapes=new Array(4),actorMaterials=new Array(15);
+const actorKinds=['guard','bulwark','marksman','courier'];
+const actorCounts=[288,336,312,276];
+function actorKey(unit,asCourier=false){
+  if(asCourier||unit.team==='courier')return 13+Number(Boolean(unit.active));
+  if(unit.team==='agent')return Number.isInteger(unit.id)&&unit.id>=0&&unit.id<4?unit.id:0;
+  const role=unit.enemyType==='bulwark'?1:unit.enemyType==='marksman'?2:0;
+  return 4+role*3+(unit.fear>0?1:unit.stun>0?2:0);
+}
+function actorShapeIndex(key){return key<4?0:key<13?Math.floor((key-4)/3):3;}
+function actorTemplate(unit,asCourier=false){
+  const key=actorKey(unit,asCourier);let template=actorMaterials[key];
+  if(template)return template;
+  const shapeIndex=actorShapeIndex(key);
+  const shape=actorShapes[shapeIndex]??(actorShapes[shapeIndex]=makeModel(actorKinds[shapeIndex]));
+  let body,accent,helmet;
+  if(key<4){body='#c6c4aa';accent=accents[key];helmet='#899b96';}
+  else if(key>=13){body=key===14?'#8ad9dc':'#c0aa76';accent=key===14?'#8ad9dc':'#d0b67c';helmet='#b8c8bd';}
+  else{
+    const role=Math.floor((key-4)/3),state=(key-4)%3;
+    body=state===1?'#bd91cf':state===2?'#99c5bd':role===1?'#a47862':role===2?'#8d75a0':'#a25e52';
+    accent=role===2?'#c9a5e4':role===1?'#e3b17d':'#ee987c';helmet='#5b6d72';
+  }
+  const colors=[rgb(body),rgb(accent),rgb(helmet)],data=new Float32Array(shape.data);
+  for(let vertex=0;vertex<shape.slots.length;vertex++){
+    const slot=shape.slots[vertex];if(slot<0)continue;
+    const c=colors[slot],light=shape.lights[vertex],at=vertex*7+3;
+    data[at]=c[0]*light;data[at+1]=c[1]*light;data[at+2]=c[2]*light;
+  }
+  template={data,runs:shape.runs};actorMaterials[key]=template;return template;
+}
+export function actorVertexCount(unit){return actorCounts[actorShapeIndex(actorKey(unit))];}
+// Upper bound for all typed geometry/material cache slots, including metadata.
+export const ACTOR_TEMPLATE_BYTES=191424;
+export function actorCacheStats(){
+  let bytes=0,shapes=0,variants=0;
+  for(const s of actorShapes)if(s){shapes++;bytes+=s.data.byteLength+s.slots.byteLength+s.lights.byteLength+s.runs.byteLength;}
+  for(const s of actorMaterials)if(s){variants++;bytes+=s.data.byteLength;}
+  return {shapes,variants,retainedBytes:bytes,maximumShapes:4,maximumVariants:15,maximumTypedBytes:ACTOR_TEMPLATE_BYTES};
+}
+export function writeActor(mesh,unit,x,y,time,alpha=1,asCourier=false){
+  const template=actorTemplate(unit,asCourier),source=template.data;
+  const courier=asCourier||unit.team==='courier',moving=courier?unit.active&&unit.path?.length:unit.path.length;
+  mesh.reserve(source.length);const out=mesh.data,at=mesh.length;out.set(source,at);
+  if(!moving){
+    // Idle actors need only a native typed copy and two translated coordinates.
+    for(let i=0;i<source.length;i+=7){out[at+i]=x+source[i];out[at+i+1]=y+source[i+1];}
+  }else{
+    const wave=Math.sin((time+(courier?0:alpha/30))*13+(courier?300:unit.id));
+    const legSin=wave*.44,legCos=Math.sqrt(1-legSin*legSin),armSin=-wave*.15,armCos=Math.sqrt(1-armSin*armSin),legLift=Math.abs(legSin)*.022;
+    const runs=template.runs;
+    for(let run=0;run<runs.length;run+=3){
+      const begin=runs[run],end=runs[run+1],group=runs[run+2];
+      if(!group){
+        for(let i=begin;i<end;i+=7){out[at+i]=x+source[i];out[at+i+1]=y+source[i+1];}
+      }else{
+        const leg=group<3,sin=(group===1||group===3?1:-1)*(leg?legSin:armSin),cos=leg?legCos:armCos,pivot=leg?.34:.665,cy=leg?0:.01,lift=leg?legLift:0;
+        for(let i=begin;i<end;i+=7){
+          const dy=source[i+1]-cy,dz=source[i+2]-pivot;
+          out[at+i]=x+source[i];out[at+i+1]=y+cy+dy*cos-dz*sin;out[at+i+2]=pivot+dy*sin+dz*cos+lift;
+        }
+      }
+    }
+  }
+  mesh.length=at+source.length;
+}
+
 const VERTEX = `#version 300 es
 in vec3 a_position;
 in vec4 a_color;
@@ -92,7 +266,7 @@ class Mesh {
 function geometrySignature(game,hover,alpha,guards) {
   const unit=u=>[u.x,u.y,u.prevX??u.x,u.prevY??u.y,u.id,u.team,u.hp,u.maxHp,u.fear,u.stun,u.enemyType,u.path.map(p=>[p.x,p.y])];
   const point=p=>[p.x,p.y,p.done];
-  const c=game.courier,courier=c?[c.x,c.y,c.prevX??c.x,c.prevY??c.y,c.hp,c.maxHp,Boolean(c.active),Boolean(c.path?.length)]:null;
+  const c=game.courier,courier=c?[c.x,c.y,c.prevX??c.x,c.prevY??c.y,c.hp,c.maxHp,c.team,Boolean(c.active),Boolean(c.path?.length)]:null;
   return JSON.stringify([game.time,game.phase,alpha,point(game.relay),point(game.vault),point(game.exit),
     [...game.selected],game.agents.map(unit),guards.map(unit),courier,game.mission.kind,Boolean(game.holdContested),
     game.effects.map(e=>[e.type,e.life,e.maxLife,e.x,e.y,e.tx,e.ty,e.weapon,e.team]),
@@ -270,21 +444,10 @@ export class Renderer {
     for(let i=0;i<game.agents.length+guards.length;i++) {
       const unit=i<game.agents.length?game.agents[i]:guards[i-game.agents.length];
       const x=(unit.prevX??unit.x)+(unit.x-(unit.prevX??unit.x))*alpha,y=(unit.prevY??unit.y)+(unit.y-(unit.prevY??unit.y))*alpha;
-      const agent=unit.team==='agent',c=agent?'#d2c9a3':unit.fear>0?'#bd91cf':unit.stun>0?'#99c5bd':unit.enemyType==='bulwark'?'#bb8061':unit.enemyType==='marksman'?'#9c78b5':'#b26253';
+      const agent=unit.team==='agent';
       if(unit.hp<=0) {mesh.box(x-.25,y-.15,.5,.3,.08,'#4b5151');continue;}
-      const moving=unit.path.length>0,swing=moving?Math.sin((game.time+alpha/30)*13+unit.id)*.1:0;
-      mesh.ring(x,y,.32,.3,color('#050d0e',1,.6),.035);
-      mesh.box(x-.16,y-.13+swing,.12,.16,.32,'#202b2f');mesh.box(x+.04,y-.13-swing,.12,.16,.32,'#202b2f');
-      mesh.box(x-.21,y-.16,.42,.32,.43,c,.28);mesh.box(x-.13,y-.12,.26,.24,.23,'#a4af9e',.71);
-      mesh.box(x-.13,y+.122,.26,.018,.065,agent?'#fae191':'#ef9378',.8);
-      mesh.box(x+.16,y-.1,.12,.43,.1,'#263337',.55);
-      if(!agent&&unit.enemyType==='bulwark') {
-        mesh.box(x-.29,y+.16,.58,.09,.56,'#48515b',.28);
-        mesh.box(x-.23,y+.255,.46,.025,.08,'#e3b17d',.7);
-        mesh.box(x-.27,y-.2,.54,.38,.13,'#6a6d71',.62);
-      }else if(!agent&&unit.enemyType==='marksman') {
-        mesh.box(x+.18,y+.32,.065,.5,.055,'#444054',.57);
-        mesh.box(x+.165,y+.06,.095,.16,.09,'#c9a5e4',.65);
+      writeActor(mesh,unit,x,y,game.time,alpha);
+      if(!agent&&unit.enemyType==='marksman') {
         overlay.tri([x-.09,y,1.23],[x+.09,y,1.23],[x,y,1.36],color('#c9a5e4',1,.85));
       }
       if(unit.fear>0)overlay.ring(x,y,.44,.07,color('#cf9ce8',1,.85),1.1);
@@ -302,12 +465,8 @@ export class Renderer {
       const unit=game.courier,x=(unit.prevX??unit.x)+(unit.x-(unit.prevX??unit.x))*alpha,y=(unit.prevY??unit.y)+(unit.y-(unit.prevY??unit.y))*alpha;
       if(unit.hp<=0)mesh.box(x-.25,y-.15,.5,.3,.08,'#4b5151');
       else {
-        const accent=unit.active?'#8ad9dc':'#d0b67c',moving=unit.active&&unit.path?.length,swing=moving?Math.sin(game.time*13+300)*.08:0;
-        mesh.ring(x,y,.4,.05,color(accent));
-        mesh.box(x-.16,y-.12+swing,.12,.16,.32,'#25343c');mesh.box(x+.04,y-.12-swing,.12,.16,.32,'#25343c');
-        mesh.box(x-.2,y-.16,.4,.32,.43,accent,.28);mesh.box(x-.12,y-.11,.24,.22,.23,'#c0d4ca',.71);
-        mesh.box(x-.16,y-.24,.32,.1,.34,'#3b626c',.34);
-        mesh.box(x+.19,y,.13,.25,.18,'#dabf83',.36);
+        const accent=unit.active?'#8ad9dc':'#d0b67c';
+        writeActor(mesh,unit,x,y,game.time,alpha,true);
         overlay.ring(x,y,.36,.045,color(accent,1,.8),1.08);
         overlay.tri([x-.12,y,1.24],[x+.12,y,1.24],[x,y,1.4],color(accent));
         if(unit.active||unit.hp<unit.maxHp) {

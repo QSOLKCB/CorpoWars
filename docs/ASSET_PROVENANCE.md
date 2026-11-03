@@ -53,3 +53,13 @@ optics and courier silhouette are programmatic meshes in `renderer.js`. Hold
 zones, escort behavior, challenge badges and lockdown rules are original game
 logic. No downloaded artwork, samples, models, fonts or third-party game assets
 are introduced. The VANILLAJS/OPT performance attribution in NOTICE remains.
+
+## v0.4.1 character polish
+
+Rounded/faceted helmets, tapered armour and limbs, sloped boots, multi-panel
+visors, curved shield geometry, rifle/optic details and the courier hard case
+are original procedural triangle models. Their materials use baked vertex
+colours; soft contact shadows use existing alpha interpolation. No model files,
+textures, generated bitmap artwork, external assets or shaders are downloaded.
+The test-only before/after images are native Chromium captures of the old and
+new CorpoWars renderers, with any enlarged inspection zoom explicitly labelled.

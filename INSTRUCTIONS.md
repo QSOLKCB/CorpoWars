@@ -1,4 +1,4 @@
-# Field manual · v0.4.0
+# Field manual · v0.4.1
 
 Open [CorpoWars](https://qsolkcb.github.io/CorpoWars/) in a WebGL2-capable browser.
 
@@ -140,3 +140,9 @@ Rendering interpolates unit movement between fixed simulation ticks. The frame
 rate readout reports the current browser's performance. **Eco** lowers the pixel
 ratio on high-density displays. **Cutaway** hides buildings for visibility.
 Unsupported WebGL2 devices show an error instead of a blank battlefield.
+
+Agents and security use faceted helmets, tapered armour and articulated limbs.
+Muted visor colours distinguish the four agents; Bulwarks retain broad shields,
+Marksmen carry long weapons/optics, and the courier carries a hard case. Soft
+contact shadows help ground the figures. Selection rings, health indicators,
+visibility rules and click targets retain their existing behavior.

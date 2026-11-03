@@ -15,6 +15,20 @@ server, asset downloads, or build step required to play a hosted copy.
 
 ![CorpoWars: Hostile Takeover rendered in Chromium WebGL2](docs/images/briefing.png)
 
+## v0.4.1 — Human Resources
+
+The squad and security have new faceted character models: rounded helmets,
+shaped armour, articulated limbs, sloped boots, segmented visors and clearer
+weapons. Bulwark shields, Marksman optics and the courier's hard case retain
+distinct silhouettes. Soft contact shadows replace the dense old shadow rings.
+
+The models stay in the existing scene batch with the same shaders and draw
+passes. Each role fits within its v0.4.0 vertex budget; CPU preparation and cold
+startup are measured separately. Tactical markers, routes, health bars, city
+geometry and gameplay remain unchanged. See the
+[visual polish contract and measurements](docs/VISUAL_POLISH.md) and
+[v0.4.1 notes](docs/RELEASE_NOTES_v0.4.1.md).
+
 ## v0.4.0 — Hostile Expansion
 
 The campaign now has **six contracts**, with three new district layouts and
