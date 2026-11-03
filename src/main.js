@@ -12,7 +12,7 @@ const $=id=>{let element=elements.get(id);if(!element){element=document.getEleme
 const canvas=$('battlefield'),sound=new Audio(),keys=new Set(),agentUI=new Map();
 let campaign=createCampaign(),saveNotice='Progress is saved in this browser.';
 try {const saved=localStorage.getItem(SAVE_KEY);if(saved){const decoded=decodeCampaign(saved);if(decoded)campaign=decoded;else saveNotice='An incompatible campaign save was ignored. A new campaign is ready.';}}catch{saveNotice='Browser storage is unavailable. Progress lasts for this session.';}
-let game=createGame(undefined,campaign),renderer,hover=null,drag=null,last=0,accumulator=0,lastUI=-1,finished=false,graphicsLost=false,helpWasPaused=false,lastLog='',follow=false,panDirection=null;
+let game=createGame(undefined,campaign),renderer,hover=null,drag=null,last=0,accumulator=0,lastUI=-1,finished=false,graphicsLost=false,helpWasPaused=false,lastLog=null,follow=false,panDirection=null;
 let fpsFrames=0,fpsElapsed=0;
 function graphicsError(message) {$('graphics-error').hidden=false;$('graphics-message').textContent=message;$('deploy').disabled=true;game.paused=true;}
 try {renderer=new Renderer(canvas,game);} catch(error) {graphicsError(error.message);}
@@ -57,7 +57,7 @@ function saveCampaign() {
   $('save-status').textContent=saveNotice;
 }
 function prepareMission(index=campaign.mission) {
-  const previous=game.missionIndex;game=createGame(undefined,campaign,index);finished=false;hover=null;lastLog='';accumulator=0;keys.clear();panDirection=null;cancelDrag();
+  const previous=game.missionIndex;game=createGame(undefined,campaign,index);finished=false;hover=null;lastLog=null;accumulator=0;keys.clear();panDirection=null;cancelDrag();
   if(renderer){if(previous!==index)renderer.makeCity(game.world);renderer.focus({x:game.mission.spawn[0]+1.5,y:game.mission.spawn[1]},true);}
   updateUI();
 }
@@ -279,7 +279,7 @@ function updateUI() {
     style(ui.progress.style,'width',`${Math.min(100,percent*100)}%`);
   }
   const logKey=game.log.map(l=>`${l.time}:${l.text}`).join('|');
-  if(lastLog!==logKey){lastLog=logKey;$('comms').replaceChildren(...game.log.slice(0,3).map(l=>{const el=document.createElement('li');el.textContent=l.text;return el;}));if(game.log[0])announce(game.log[0].text);}
+  if(lastLog!==logKey){lastLog=logKey;$('comms').replaceChildren(...game.log.slice(0,3).map(l=>{const el=document.createElement('li');el.textContent=l.text;return el;}));announce(game.log[0]?.text??'');}
   let selected=0;for(const a of game.agents)if(a.hp>0&&game.selected.has(a.id))selected++;
   prop($('context-hint'),'textContent',active?`${selected} SELECTED / WASD CAMERA / Q SELECT ALL / SPACE PAUSE`:'SELECT · RESEARCH · DEPLOY');
   if(game.phase==='won'||game.phase==='lost')showDebrief();

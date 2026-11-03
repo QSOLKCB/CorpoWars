@@ -87,6 +87,8 @@ async function gpuSample(page){
     for(let mission=3;mission<6;mission++){
       const definition=MISSIONS[mission];
       assert.equal((await page.locator('#operation-name').textContent()).trim(),definition.name.toUpperCase());
+      assert.equal(await page.locator('#comms li').count(),0,'new briefings must clear the previous contract comms');
+      assert.equal(await page.locator('#announcement').textContent(),'','new briefings must clear the previous accessible announcement');
       await page.screenshot({path:`test-results/expansion-${definition.id}-briefing.png`,fullPage:true});
       const gpu=await gpuSample(page);
       await page.locator('#deploy').click();await page.keyboard.press('q');
