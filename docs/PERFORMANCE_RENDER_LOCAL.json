@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "baseline": "QSOLKCB/CorpoWars@54a4b1bc1d24195092be2c1e8f056a2eb3730057",
+  "donor": "QSOLKCB/VANILLAJS retained-capacity/exact-render-input reuse patterns",
+  "environment": {
+    "runtime": "v24.22.1",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor"
+  },
+  "protocol": {
+    "frames": 120,
+    "warmupPairs": 2,
+    "measuredPairs": 7,
+    "order": "alternating",
+    "timingGate": false,
+    "scope": "Cold renderer construction plus CPU geometry/signatures/Float32 model copies. Excludes GPU/driver, browser layout, full game frame rate and memory measurement.",
+    "metrics": "uploadCalls/uploadedBytes count bufferSubData only (dynamic geometry). storageCalls/storageBytes count bufferData calls and requested bytes including static city. retainedBytes is current model buffer capacity, not driver memory. Draw parity compares live Float32 values, draw order, camera uniforms and depth state."
+  },
+  "workloads": [
+    {
+      "name": "briefing-camera",
+      "outputSha256": "9545d5f4f8b05417d3f0b1b3edc9b9af9d3f29cc085a02ffb693723596d2e637",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 3,
+        "storageBytes": 1089208,
+        "uploadCalls": 240,
+        "uploadedBytes": 15160320,
+        "attributeCalls": 840,
+        "drawCalls": 420,
+        "retainedBytes": 1089208,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "optimized": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1351352,
+        "uploadCalls": 2,
+        "uploadedBytes": 126336,
+        "attributeCalls": 8,
+        "drawCalls": 420,
+        "retainedBytes": 1351352,
+        "geometryBuilds": 1,
+        "geometryHits": 119
+      },
+      "samplesMs": {
+        "baseline": [
+          30.962251999999978,
+          29.251716999999985,
+          27.59036500000002,
+          24.37585100000001,
+          22.32971900000001,
+          24.13221100000004,
+          22.545278999999937
+        ],
+        "optimized": [
+          5.355145999999991,
+          5.271551000000045,
+          3.470894000000044,
+          3.258999000000017,
+          2.7255590000000325,
+          3.4294020000000387,
+          2.9381439999999657
+        ]
+      },
+      "medianMs": {
+        "baseline": 24.37585100000001,
+        "optimized": 3.4294020000000387
+      }
+    },
+    {
+      "name": "paused-orders",
+      "outputSha256": "29909f67ae1aab1636f1ee376df8afc0282162011f4afd2f9fd18ea8ee9dd128",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 3,
+        "storageBytes": 1080472,
+        "uploadCalls": 240,
+        "uploadedBytes": 12711720,
+        "attributeCalls": 960,
+        "drawCalls": 480,
+        "retainedBytes": 1080472,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "optimized": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1342616,
+        "uploadCalls": 20,
+        "uploadedBytes": 1072092,
+        "attributeCalls": 8,
+        "drawCalls": 480,
+        "retainedBytes": 1342616,
+        "geometryBuilds": 10,
+        "geometryHits": 110
+      },
+      "samplesMs": {
+        "baseline": [
+          20.354933999999957,
+          20.848704999999995,
+          19.994710000000055,
+          20.40294499999993,
+          20.49269700000002,
+          20.329856000000063,
+          20.54852900000003
+        ],
+        "optimized": [
+          4.2751349999999775,
+          3.938676999999984,
+          3.554085999999984,
+          3.4135179999999536,
+          4.001800000000003,
+          4.959540000000061,
+          3.4614100000000008
+        ]
+      },
+      "medianMs": {
+        "baseline": 20.40294499999993,
+        "optimized": 3.938676999999984
+      }
+    },
+    {
+      "name": "active-patrol",
+      "outputSha256": "063a6212818474114400cc80d019d4ef1008e4123df20acbfa774b877b6096ee",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 3,
+        "storageBytes": 1089208,
+        "uploadCalls": 240,
+        "uploadedBytes": 17128608,
+        "attributeCalls": 960,
+        "drawCalls": 480,
+        "retainedBytes": 1089208,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "optimized": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1351352,
+        "uploadCalls": 240,
+        "uploadedBytes": 17128608,
+        "attributeCalls": 8,
+        "drawCalls": 480,
+        "retainedBytes": 1351352,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "samplesMs": {
+        "baseline": [
+          26.646275999999943,
+          27.033519999999953,
+          27.284502000000202,
+          26.751608000000033,
+          30.856416999999965,
+          26.70048799999995,
+          27.33516899999995
+        ],
+        "optimized": [
+          15.58168999999998,
+          14.66215699999998,
+          15.980041000000028,
+          14.217968000000155,
+          16.685713000000078,
+          14.61284099999989,
+          14.228110000000015
+        ]
+      },
+      "medianMs": {
+        "baseline": 27.033519999999953,
+        "optimized": 14.66215699999998
+      }
+    },
+    {
+      "name": "changing-combat",
+      "outputSha256": "9f4dc765f0042b67bb4681b8b88b6136b70b6a668892e66a433bb6182fa9d7d3",
+      "baseline": {
+        "frames": 120,
+        "storageCalls": 3,
+        "storageBytes": 1076440,
+        "uploadCalls": 240,
+        "uploadedBytes": 32775120,
+        "attributeCalls": 936,
+        "drawCalls": 468,
+        "retainedBytes": 1076440,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "optimized": {
+        "frames": 120,
+        "storageCalls": 4,
+        "storageBytes": 1338584,
+        "uploadCalls": 240,
+        "uploadedBytes": 32775120,
+        "attributeCalls": 8,
+        "drawCalls": 468,
+        "retainedBytes": 1338584,
+        "geometryBuilds": 120,
+        "geometryHits": 0
+      },
+      "samplesMs": {
+        "baseline": [
+          52.85700900000006,
+          48.73038199999996,
+          48.66997300000003,
+          53.96149600000035,
+          47.06448300000011,
+          49.84241999999995,
+          54.65225099999998
+        ],
+        "optimized": [
+          18.940224999999828,
+          19.83050500000013,
+          35.78569399999992,
+          23.342309000000114,
+          18.317371000000094,
+          19.45517800000016,
+          28.28760000000011
+        ]
+      },
+      "medianMs": {
+        "baseline": 49.84241999999995,
+        "optimized": 19.83050500000013
+      }
+    }
+  ]
+}

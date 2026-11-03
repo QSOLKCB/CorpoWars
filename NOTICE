@@ -10,3 +10,11 @@ No source code, game data, graphics, maps, music, sound samples, fonts, characte
 or trademarks from those projects are included as game assets.
 CorpoWars is an independent project and is not affiliated with or endorsed by
 Electronic Arts, Bullfrog, or the FreeSynd contributors.
+
+Performance work adapts native-JavaScript rendering reuse, retained-buffer and
+binary-heap navigation patterns from QSOLKCB/VANILLAJS, Apache-2.0, at
+1f965f4e5b6669de0f954e3a39b11aa679e56720. Its rendering reuse credits the
+invariant/signature concepts in QSOLKCB/OPT at
+7556dd36acd53ed3ed538fd03b1db44e5c1ec869. No Wonderbuild or GPL donor source
+is copied. CorpoWars retains its original projection, geometry and route rules.
+See docs/PERFORMANCE.md for provenance, exactness and measurement limits.

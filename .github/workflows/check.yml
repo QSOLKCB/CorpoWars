@@ -19,7 +19,19 @@ jobs:
           node-version: '22'
       - run: node scripts/check.mjs
       - run: node --test tests/*.test.js
+      - name: Measure exact renderer and navigation workloads
+        run: |
+          mkdir -p test-results
+          node scripts/performance-render.mjs > test-results/renderer-performance.json
+          node scripts/navigation-performance.mjs > test-results/navigation-performance.json
       - run: node scripts/build.mjs
+      - name: Retain performance observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-evidence
+          path: test-results/
+          if-no-files-found: ignore
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -36,6 +48,8 @@ jobs:
           # still fails if any required runtime library is absent.
           "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install chromium
       - run: node scripts/build.mjs
+      - name: Compare native renderer pixels with v0.3.0
+        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-renderer.cjs
       - name: Play the campaign and validate headquarters in Chromium WebGL2
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
       - name: Retain visual evidence

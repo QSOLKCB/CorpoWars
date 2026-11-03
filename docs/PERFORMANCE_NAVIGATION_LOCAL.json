@@ -1,0 +1,36 @@
+{
+  "source": "CorpoWars 54a4b1bc1d24195092be2c1e8f056a2eb3730057 findPath",
+  "method": "2 warm-up pairs, 7 alternating measured pairs; 1200 paths across 3 freshly constructed 36x36 worlds per trial; exact complete waypoint-array parity",
+  "environment": {
+    "node": "v24.22.1",
+    "platform": "linux",
+    "architecture": "x64"
+  },
+  "samplesMs": {
+    "reference": [
+      92.37071099999997,
+      97.06518399999993,
+      93.24931300000003,
+      99.95460700000001,
+      89.84720400000003,
+      89.72576600000002,
+      88.41404200000011
+    ],
+    "heap": [
+      24.714445000000012,
+      19.000405,
+      17.51177800000005,
+      17.286284000000023,
+      17.136151999999925,
+      18.287437000000068,
+      17.992570999999998
+    ]
+  },
+  "medianMs": {
+    "reference": 92.37071099999997,
+    "heap": 17.992570999999998
+  },
+  "routeDigestSha256": "3d977bf01e3f450857c2783881afedc3af49021e8524f68044e4c2306a45b7c8",
+  "retainedScratchBytesPer1296CellWorld": 51840,
+  "limitations": "CPU route preparation only; no frame-rate, browser, physical GPU or heap/RSS claim. Timings have no CI threshold."
+}

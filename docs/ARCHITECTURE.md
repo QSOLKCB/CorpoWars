@@ -51,6 +51,15 @@ handles city geometry. Selected-unit markers intentionally render above roofs.
 The minimap is a separate Canvas 2D interface element; the game renderer
 requires WebGL2. Pixel ratio is capped at 2.
 
+The VANILLAJS performance adaptation writes primitives directly into retained
+typed arrays, uses per-buffer WebGL2 vertex arrays, and keeps scene/overlay
+capacity separately. Complete effective-input signatures reuse unchanged
+geometry/uploads; camera uniforms and cutaway still update. The HUD compares
+live DOM state and the minimap retains one background raster. A stable binary
+heap with weakly owned typed scratch preserves the original A* tie order.
+See [PERFORMANCE.md](PERFORMANCE.md) for invalidation, failure handling, exact
+baseline comparisons, raw measurements and the additional buffer-memory cost.
+
 No textures, downloaded fonts, sprite sheets, model files, image generation,
 sampled audio, or original-game data are used. Traffic is decorative. No fog
 texture is used; undiscovered hostiles are omitted from the scene and minimap.

@@ -40,15 +40,70 @@ export function nearestWalkable(world, x, y, used = new Set()) {
   return null;
 }
 
+// Adapted from VANILLAJS 1f965f4e5b6669de0f954e3a39b11aa679e56720's
+// binary-heap navigation pattern. Keep CorpoWars's
+// original Set insertion-order tie break and east/south/west/north expansion.
+// Each live world owns one bounded scratch generation; paths always own their
+// output points and occupancy is read fresh, including in-place terrain edits.
+const searchWorkspaces = new WeakMap();
+const PATH_DX = [1, 0, -1, 0], PATH_DY = [0, 1, 0, -1];
+class SearchWorkspace {
+  constructor(total) {
+    this.total = total; this.epoch = 0; this.length = 0;
+    this.costs = new Float64Array(total); this.priority = new Float64Array(total);
+    this.previous = new Int32Array(total); this.heap = new Int32Array(total);
+    this.position = new Int32Array(total); this.order = new Uint32Array(total);
+    this.seen = new Uint32Array(total); this.closed = new Uint32Array(total);
+  }
+  begin() {
+    this.length = 0;
+    this.epoch = (this.epoch + 1) >>> 0;
+    if (!this.epoch) { this.seen.fill(0); this.closed.fill(0); this.epoch = 1; }
+  }
+  before(a, b) {
+    return this.priority[a] < this.priority[b] ||
+      (this.priority[a] === this.priority[b] && this.order[a] < this.order[b]);
+  }
+  raise(id, at) {
+    while (at) {
+      const parent = (at - 1) >> 1, other = this.heap[parent];
+      if (!this.before(id, other)) break;
+      this.heap[at] = other; this.position[other] = at; at = parent;
+    }
+    this.heap[at] = id; this.position[id] = at;
+  }
+  pop() {
+    const first = this.heap[0], last = this.heap[--this.length];
+    if (this.length) {
+      let at = 0;
+      while (at * 2 + 1 < this.length) {
+        let child = at * 2 + 1;
+        if (child + 1 < this.length && this.before(this.heap[child + 1], this.heap[child])) child++;
+        const other = this.heap[child];
+        if (!this.before(other, last)) break;
+        this.heap[at] = other; this.position[other] = at; at = child;
+      }
+      this.heap[at] = last; this.position[last] = at;
+    }
+    return first;
+  }
+}
+
 export function findPath(world, start, goal) {
   if (!walkable(world, start.x, start.y) || !walkable(world, goal.x, goal.y)) return [];
-  const n = world.size, a = Math.floor(start.y) * n + Math.floor(start.x), b = Math.floor(goal.y) * n + Math.floor(goal.x);
-  const costs = new Float64Array(n * n).fill(Infinity), previous = new Int32Array(n * n).fill(-1);
-  const open = new Set([a]), closed = new Set(); costs[a] = 0;
-  const h = id => Math.abs(id % n - b % n) + Math.abs(Math.floor(id / n) - Math.floor(b / n));
-  while (open.size) {
-    let current = -1, best = Infinity;
-    for (const id of open) { const score = costs[id] + h(id); if (score < best) { best = score; current = id; } }
+  const n = world.size, total = n * n;
+  const a = Math.floor(start.y) * n + Math.floor(start.x), b = Math.floor(goal.y) * n + Math.floor(goal.x);
+  let work = searchWorkspaces.get(world);
+  if (!work || work.total !== total) { work = new SearchWorkspace(total); searchWorkspaces.set(world, work); }
+  work.begin();
+  const { costs, priority, previous, seen, closed, order, position } = work, epoch = work.epoch;
+  const gx = b % n, gy = Math.floor(b / n);
+  costs[a] = 0; previous[a] = -1; seen[a] = epoch; order[a] = 0;
+  priority[a] = Math.abs(a % n - gx) + Math.abs(Math.floor(a / n) - gy);
+  work.raise(a, work.length++);
+  let sequence = 1;
+  while (work.length) {
+    const current = work.pop();
     if (current === b) {
       const path = [];
       for (let id = b; id !== -1; id = previous[id]) path.push({ x: id % n + .5, y: Math.floor(id / n) + .5 });
@@ -56,13 +111,18 @@ export function findPath(world, start, goal) {
       if (distance(start, path[0]) < .001) path.shift();
       return path;
     }
-    open.delete(current); closed.add(current);
-    const x = current % n, y = Math.floor(current / n);
-    for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
-      if (!walkable(world, x + dx, y + dy)) continue;
-      const next = (y + dy) * n + x + dx;
-      if (closed.has(next) || costs[current] + 1 >= costs[next]) continue;
-      costs[next] = costs[current] + 1; previous[next] = current; open.add(next);
+    closed[current] = epoch;
+    const x = current % n, y = Math.floor(current / n), cost = costs[current] + 1;
+    for (let direction = 0; direction < 4; direction++) {
+      const nx = x + PATH_DX[direction], ny = y + PATH_DY[direction];
+      if (!walkable(world, nx, ny)) continue;
+      const next = ny * n + nx;
+      if (closed[next] === epoch || (seen[next] === epoch && cost >= costs[next])) continue;
+      const known = seen[next] === epoch;
+      costs[next] = cost; previous[next] = current;
+      priority[next] = cost + Math.abs(nx - gx) + Math.abs(ny - gy);
+      if (!known) { seen[next] = epoch; order[next] = sequence++; }
+      work.raise(next, known ? position[next] : work.length++);
     }
   }
   return [];
