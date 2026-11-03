@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { WEAPONS, AUG_MODES, RESEARCH, MISSIONS, canResearch, research, equip, missionUnlocked } from './campaign.js';
+import { CHALLENGES } from './challenges.js';
 const $=id=>document.getElementById(id),money=n=>n.toLocaleString('en-AU');
 const names=['VEX','NULL','ECHO','IRON'];
 export function headquarters(getCampaign, changed, newCampaign) {
@@ -10,8 +11,10 @@ export function headquarters(getCampaign, changed, newCampaign) {
     const c=getCampaign();$('cash').textContent=money(c.cash);
     $('difficulty').value=c.difficulty;
     $('mission-list').replaceChildren(...MISSIONS.map((mission,i)=>{
-      const button=document.createElement('button');button.className='contract-card';button.disabled=!missionUnlocked(c,i);button.setAttribute('aria-pressed',String(c.mission===i));
-      button.innerHTML=`<small>CONTRACT 0${i+1} / ${c.completed.includes(i)?'COMPLETE':button.disabled?'LOCKED':'AVAILABLE'}</small><strong>${mission.name}</strong><span>${mission.district}</span><small>${c.completed.includes(i)?'REPLAY · NO REWARD':`PAYS ${money(mission.reward)} CR`}</small>`;
+      const button=document.createElement('button');button.id=`contract-${i}`;button.className='contract-card';button.disabled=!missionUnlocked(c,i);button.setAttribute('aria-pressed',String(c.mission===i));
+      const mechanic={hold:'HOLD THE TRANSMITTER',escort:'PROTECT THE COURIER',lockdown:'EXTRACT BEFORE LOCKDOWN'}[mission.kind]??'INFILTRATE · SEIZE · EXTRACT';
+      const badges=c.challenges?.[`${mission.id}:${c.difficulty}`]??[];
+      button.innerHTML=`<small>CONTRACT 0${i+1} / ${c.completed.includes(i)?'COMPLETE':button.disabled?'LOCKED':'AVAILABLE'}</small><strong>${mission.name}</strong><span>${mission.district}</span><small>${mechanic} · PAR ${mission.parTime}s</small><small>${c.completed.includes(i)?'REPLAY · NO REWARD':`PAYS ${money(mission.reward)} CR`}</small><small class="contract-medals">${badges.length?badges.map(id=>CHALLENGES.find(challenge=>challenge.id===id).name).join(' · '):'0 / 3 CHALLENGE BADGES'} · ${c.difficulty.toUpperCase()}</small>`;
       button.addEventListener('click',()=>{c.mission=i;changed();refresh();feedback(mission.brief);});return button;
     }));
     $('loadouts').replaceChildren(...names.map((name,i)=>{
@@ -50,7 +53,7 @@ export function headquarters(getCampaign, changed, newCampaign) {
     $(`tab-${name}`).addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?'loadout':event.key==='End'?'research':name==='loadout'?'research':'loadout';tab(next);$(`tab-${next}`).focus();}});
   }
   $('hq-close').addEventListener('click',()=>$('hq').close());$('hq-ready').addEventListener('click',()=>$('hq').close());
-  $('difficulty').addEventListener('change',event=>{getCampaign().difficulty=event.target.value;changed();feedback(event.target.value==='hostile'?'Hostile: stronger, faster guards, four extra security units and shorter panic retreats.':'Relaxed: the original forgiving combat balance.');});
+  $('difficulty').addEventListener('change',event=>{getCampaign().difficulty=event.target.value;changed();refresh();feedback(event.target.value==='hostile'?'Hostile: stronger, faster guards, four extra security units and shorter panic retreats.':'Relaxed: the original forgiving combat balance.');});
   $('new-campaign').addEventListener('click',()=>{
     if(!confirmReset){confirmReset=true;$('new-campaign').textContent='CONFIRM RESET — ERASE CAMPAIGN';feedback('This resets credits, purchases and completed contracts. Click again to confirm.');return;}
     newCampaign();confirmReset=false;$('new-campaign').textContent='NEW CAMPAIGN';refresh();feedback('New campaign. Starting budget: 6,000 credits.');

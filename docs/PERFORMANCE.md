@@ -1,8 +1,10 @@
-# VANILLAJS performance upgrade
+# VANILLAJS performance upgrade · PR #3 baseline
 
-This changes execution and rendering work, with no additional game content.
+This records PR #3's execution and rendering work, which added no game content.
 The campaign catalogue, balance, map generator, shaders, audio, HTML and CSS
-retain their v0.3.0 content. The 30 Hz simulation and interpolation remain intact.
+retained their v0.3.0 content. The 30 Hz simulation and interpolation remain intact.
+The later v0.4.0 expansion adds districts, enemies and mission types; its renderer
+still runs the original-scene equality checks and keeps the same reuse model.
 
 Donor: [QSOLKCB/VANILLAJS](https://github.com/QSOLKCB/VANILLAJS/tree/1f965f4e5b6669de0f954e3a39b11aa679e56720),
 commit `1f965f4e5b6669de0f954e3a39b11aa679e56720`, especially its

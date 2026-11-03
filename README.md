@@ -15,6 +15,28 @@ server, asset downloads, or build step required to play a hosted copy.
 
 ![CorpoWars: Hostile Takeover rendered in Chromium WebGL2](docs/images/briefing.png)
 
+## v0.4.0 — Hostile Expansion
+
+The campaign now has **six contracts**, with three new district layouts and
+different tactical objectives:
+
+| Contract | District | Challenge |
+| --- | --- | --- |
+| Signal Siege | Copperline Grid | Hold an uncontested transmitter against two security waves |
+| Witness Protection | Cold Storage | Release and protect a vulnerable courier all the way to extraction |
+| Golden Parachute | Obsidian Exchange | Seize the severance fund and escape before lockdown |
+
+Bulwarks bring heavy armour and shields; Marksmen engage from longer range.
+The new districts have distinct procedural palettes and rooftop machinery.
+Every contract also offers three optional badges for a full squad extraction,
+winning without abilities, and beating its par time. Badges persist separately
+by contract and difficulty without paying duplicate credits.
+
+Existing campaign saves carry forward. Finish the original three contracts,
+then choose Signal Siege in **Research & Loadout**. The new **Escort courier**
+button / **C** handles automatic accompaniment after release. See the updated
+[field manual](INSTRUCTIONS.md) and [v0.4.0 notes](docs/RELEASE_NOTES_v0.4.0.md).
+
 ## VANILLAJS performance upgrade
 
 The renderer now uses direct typed-array geometry, retained scene/overlay
@@ -27,6 +49,8 @@ Local CPU workloads reduced active renderer preparation by about 46%, changing
 combat preparation by 60%, and 1,200-path preparation by 81%. These are measured
 preparation workloads, not FPS claims. See the complete
 [performance contract, raw measurements and memory tradeoff](docs/PERFORMANCE.md).
+Those measurements record the PR #3 optimization baseline; expansion districts
+add their own geometry while the original scene parity checks remain enforced.
 
 ## v0.3.0 — Corporate Dissolution
 

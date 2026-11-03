@@ -11,6 +11,8 @@ work. `scripts/build.mjs` packages a small allowlist of public game files.
 | `src/main.js` | DOM UI, pointer/keyboard input, minimap, animation loop, local record storage |
 | `src/campaign.js` | Weapon/research/mission catalogues, difficulty, economy, save validation |
 | `src/headquarters.js` | Armoury, research prerequisites and contract selection UI |
+| `src/challenges.js` | Pure optional challenge evaluation and per-contract/difficulty badge union |
+| `src/runtime.js` | Compare-before-write UI helpers and one current minimap background raster |
 | `src/music.js` | Pure deterministic score and bounded Web Audio look-ahead scheduling |
 | `src/audio.js` | Independent opt-in music/effects and Web Audio envelopes |
 
@@ -42,6 +44,17 @@ Relay → ledger → extraction is an ordered state machine. Living, stationary
 agents channel terminal progress. Reinforcements spawn once at ledger completion.
 Extraction requires all living agents. Win/loss freezes the simulation.
 
+The expansion keeps the original three layouts byte-for-byte and adds three
+new building occupancy patterns. Mission `kind` selects a contested hold,
+courier escort or lockdown variant. Hold waves have per-wave once flags;
+contested/abandoned transmission decays rather than resetting those flags.
+Courier movement needs living support within six tiles and line of sight;
+automatic escort refreshes assigned agents' paths every 0.75 simulated seconds.
+Manual orders cancel the escort mode. Guards can target a courier only after
+release, and courier death is terminal. Lockdown starts on relay completion,
+uses only simulation time and loses on expiration unless extraction completes
+on that tick. All new state freezes during pause and terminal phases.
+
 ## Rendering
 
 Two GLSL ES 3.00 shaders project original coloured triangle meshes to an
@@ -59,6 +72,10 @@ live DOM state and the minimap retains one background raster. A stable binary
 heap with weakly owned typed scratch preserves the original A* tie order.
 See [PERFORMANCE.md](PERFORMANCE.md) for invalidation, failure handling, exact
 baseline comparisons, raw measurements and the additional buffer-memory cost.
+New district palettes/rooftop equipment are static meshes. Specialist identity,
+courier effective inputs and hold-zone state are included in dynamic geometry
+signatures. Hidden guards still use the same visibility filter. The original
+four rendering workloads remain exact comparisons against the frozen baseline.
 
 No textures, downloaded fonts, sprite sheets, model files, image generation,
 sampled audio, or original-game data are used. Traffic is decorative. No fog
@@ -73,6 +90,11 @@ ownership, prerequisites, completion order and the complete budget equation.
 Unknown/invalid saves fall back to a new campaign. Best times use separate keys
 for each mission and difficulty. No in-mission positions are saved, no arbitrary
 save object is spread into simulation state, and storage failures do not interrupt play.
+The optional `challenges` field extends the existing v1 save. Missing fields
+default to empty badges; old three-contract saves keep their previous selection
+and unlock the fourth contract. Badge keys, difficulty, IDs and completed
+contract membership are validated. The cash ceiling and exact budget equation
+cover all six rewards. Challenges never mint credits or unlock missions.
 
 The HTML controls have accessible labels, focus indicators, and status text.
 Canvas gameplay still requires visual/spatial interaction; full screen-reader
@@ -118,4 +140,8 @@ Pull requests run `check.yml`. Main-branch Pages publication calls the same
 reusable validation workflow, including real Chromium WebGL2 gameplay and an
 offline audio render, before packaging the public-file allowlist and deploying.
 A failed gameplay check blocks deployment. Tests exercise the repository subpath,
-all three contracts, persistence, budget, research, camera and HUD layout.
+all six contracts, persistence, budget, research, camera and HUD layout. A
+separate packaged expansion playthrough starts from a valid old v1 save, plays
+hold/escort/lockdown through DOM controls and verifies medals, replay payouts and
+mobile layout. Browser execution uses Chromium/SwiftShader; physical GPU and
+other-browser performance remain outside this automated coverage.

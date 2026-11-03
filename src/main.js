@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createGame, startGame, tick, STEP, selectAgents, orderMove, orderAttack, stopAgents, medkit, pulse, visibleGuard, clamp, cycleMode, togglePanic } from './simulation.js';
-import { createCampaign, decodeCampaign, SAVE_KEY, WEAPONS, AUG_MODES, settleMission } from './campaign.js';
+import { createGame, startGame, tick, STEP, selectAgents, orderMove, orderAttack, orderEscort, objectiveDuration, stopAgents, medkit, pulse, visibleGuard, clamp, cycleMode, togglePanic } from './simulation.js';
+import { createCampaign, decodeCampaign, SAVE_KEY, WEAPONS, AUG_MODES, MISSIONS, settleMission } from './campaign.js';
+import { challengeResults, recordChallenges } from './challenges.js';
 import { headquarters } from './headquarters.js';
 import { Renderer } from './renderer.js';
 import { Audio } from './audio.js';
@@ -11,7 +12,7 @@ const $=id=>{let element=elements.get(id);if(!element){element=document.getEleme
 const canvas=$('battlefield'),sound=new Audio(),keys=new Set(),agentUI=new Map();
 let campaign=createCampaign(),saveNotice='Progress is saved in this browser.';
 try {const saved=localStorage.getItem(SAVE_KEY);if(saved){const decoded=decodeCampaign(saved);if(decoded)campaign=decoded;else saveNotice='An incompatible campaign save was ignored. A new campaign is ready.';}}catch{saveNotice='Browser storage is unavailable. Progress lasts for this session.';}
-let game=createGame(undefined,campaign),renderer,hover=null,drag=null,last=0,accumulator=0,lastUI=-1,finished=false,graphicsLost=false,helpWasPaused=false,lastLog='',follow=false,panDirection=null;
+let game=createGame(undefined,campaign),renderer,hover=null,drag=null,last=0,accumulator=0,lastUI=-1,finished=false,graphicsLost=false,helpWasPaused=false,lastLog=null,follow=false,panDirection=null;
 let fpsFrames=0,fpsElapsed=0;
 function graphicsError(message) {$('graphics-error').hidden=false;$('graphics-message').textContent=message;$('deploy').disabled=true;game.paused=true;}
 try {renderer=new Renderer(canvas,game);} catch(error) {graphicsError(error.message);}
@@ -33,6 +34,7 @@ const labels={};
 for(const [key,text] of [['relay','01 / RELAY'],['vault','02 / LEDGER'],['exit','03 / EXTRACT']]) {
   const label=document.createElement('span');label.className='world-label';label.textContent=text;$('world-labels').append(label);labels[key]=label;
 }
+labels.courier=$('courier-label');$('world-labels').append(labels.courier);
 
 const objectiveUI={};
 for(const key of ['relay','vault','exit']) {
@@ -55,7 +57,7 @@ function saveCampaign() {
   $('save-status').textContent=saveNotice;
 }
 function prepareMission(index=campaign.mission) {
-  const previous=game.missionIndex;game=createGame(undefined,campaign,index);finished=false;hover=null;lastLog='';accumulator=0;keys.clear();panDirection=null;cancelDrag();
+  const previous=game.missionIndex;game=createGame(undefined,campaign,index);finished=false;hover=null;lastLog=null;accumulator=0;keys.clear();panDirection=null;cancelDrag();
   if(renderer){if(previous!==index)renderer.makeCity(game.world);renderer.focus({x:game.mission.spawn[0]+1.5,y:game.mission.spawn[1]},true);}
   updateUI();
 }
@@ -89,9 +91,15 @@ function emp() {if(!pulse(game))announce(game.paused?'Resume time to use EMP.':'
 function hold() {if(game.phase!=='active')return;game.holdFire=!game.holdFire;updateUI();}
 function panic() {togglePanic(game);updateUI();}
 function augMode() {if(!cycleMode(game))announce('Select an agent carrying an AUG.');updateUI();}
+function escort() {
+  if(orderEscort(game)){setFollow(true);renderer?.focus(game.courier);announce('Escort detail assigned. Stay close to protect the courier.');}
+  else announce('Release the courier and select living agents to form an escort detail.');
+  updateUI();
+}
 function cutaway() {if(!renderer)return;renderer.cutaway=!renderer.cutaway;$('cutaway').setAttribute('aria-pressed',String(renderer.cutaway));}
 $('medkit').addEventListener('click',heal);$('pulse').addEventListener('click',emp);$('hold-fire').addEventListener('click',hold);
 $('panic').addEventListener('click',panic);$('aug-mode').addEventListener('click',augMode);
+$('escort-order').addEventListener('click',escort);
 $('focus').addEventListener('click',focusSquad);$('cutaway').addEventListener('click',cutaway);
 $('quality').addEventListener('click',()=>{if(!renderer)return;renderer.pixelRatio=renderer.pixelRatio===2?1:2;$('quality').setAttribute('aria-pressed',String(renderer.pixelRatio===1));});
 function setFollow(value) {follow=value;attr($('follow'),'aria-pressed',String(value));}
@@ -104,6 +112,7 @@ for(const [direction,vector] of Object.entries({up:[0,-1],left:[-1,0],down:[0,1]
 }
 $('zoom-in').addEventListener('click',()=>renderer?.zoomBy(1.2));$('zoom-out').addEventListener('click',()=>renderer?.zoomBy(1/1.2));
 for(const key of ['relay','vault','exit']) $(`${key}-order`).addEventListener('click',()=>{
+  if(key==='exit'&&game.courier?.active){escort();return;}
   const p=game[key];if(orderMove(game,p.x,p.y)){setFollow(false);renderer?.focus(p);announce(`Squad ordered to ${key==='exit'?'extraction':key}.`);}updateUI();
 });
 
@@ -177,6 +186,7 @@ document.addEventListener('keydown',event=>{
   else if(key==='h')hold();
   else if(key==='p')panic();
   else if(key==='b')augMode();
+  else if(key==='c')escort();
   else if(key==='escape')stopAgents(game);
   else if(key==='+'||key==='=')renderer.zoomBy(1.2);
   else if(key==='-')renderer.zoomBy(1/1.2);
@@ -192,6 +202,11 @@ function drawMap() {
   map.fillStyle='#d1816c';
   for(const e of game.guards)if(visibleGuard(game,e))map.fillRect(e.x*s-2,e.y*s-2,4,4);
   for(const a of game.agents)if(a.hp>0){map.fillStyle=game.selected.has(a.id)?'#ead48a':'#acbca4';map.fillRect(a.x*s-2,a.y*s-2,4,4);}
+  if(game.courier){
+    const c=game.courier;map.fillStyle=c.hp<=0?'#657c80':c.active?'#80d7df':'#527b88';
+    map.fillRect(c.x*s-2.5,c.y*s-2.5,5,5);
+    map.strokeStyle='#c7eff1';map.strokeRect(c.x*s-3.5,c.y*s-3.5,7,7);
+  }
   map.strokeStyle='#cfbf7955';map.lineWidth=1;map.beginPath();
   let p=renderer.unproject(0,0);map.moveTo(p.x*s,p.y*s);
   p=renderer.unproject(renderer.width,0);map.lineTo(p.x*s,p.y*s);
@@ -203,9 +218,16 @@ function timeText(time){return `${String(Math.floor(time/60)).padStart(2,'0')}:$
 function showDebrief() {
   if(finished)return;finished=true;const won=game.phase==='won',alive=game.agents.filter(a=>a.hp>0).length;
   $('result-title').textContent=won?'CONTRACT FULFILLED.':'ASSETS LIQUIDATED.';
-  const reward=settleMission(campaign,game.missionIndex,game.phase);saveCampaign();
-  $('result-copy').textContent=won?`${game.mission.district} contract complete. ${reward?`${reward.toLocaleString('en-AU')} credits paid.`:'Replay complete; this contract has already paid out.'} ${campaign.completed.length===3?'All three districts are free of corporate control.':'Return to headquarters to refit for the next district.'}`:'The district remains under corporate control. Your equipment is retained. Refit and retry.';
+  const reward=settleMission(campaign,game.missionIndex,game.phase);recordChallenges(campaign,game);saveCampaign();
+  $('result-copy').textContent=won?`${game.mission.district} contract complete. ${reward?`${reward.toLocaleString('en-AU')} credits paid.`:'Replay complete; this contract has already paid out.'} ${campaign.completed.length===MISSIONS.length?'All six districts are free of corporate control.':'Return to headquarters to refit for the next district.'}`:game.courier?.hp<=0?'The courier was lost. Your equipment is retained. Refit and retry.':game.lockdownRemaining===0?'The corporate lockdown sealed the district. Your equipment is retained. Refit and retry.':'The district remains under corporate control. Your equipment is retained. Refit and retry.';
   $('result-stats').innerHTML=`<span><b>${timeText(game.time)}</b>ELAPSED</span><span><b>${alive}/4</b>EXTRACTED</span><span><b>${game.kills}</b>HOSTILES</span>`;
+  const challenges=challengeResults(game),earned=challenges.filter(c=>c.earned).length;
+  $('challenge-summary').textContent=`OPTIONAL CHALLENGES · ${earned}/${challenges.length} EARNED · ${game.difficulty.name.toUpperCase()}`;
+  $('challenge-results').replaceChildren(...challenges.map(challenge=>{
+    const card=document.createElement('li');card.id=`challenge-${challenge.id}`;card.className='challenge-result';card.classList.toggle('earned',challenge.earned);card.dataset.earned=String(challenge.earned);
+    const name=document.createElement('strong'),description=document.createElement('span');
+    name.textContent=`${challenge.earned?'✓':'—'} ${challenge.name}`;description.textContent=challenge.description;card.append(name,description);return card;
+  }));
   $('best-result').textContent='';
   if(won)try {
     const key=`corpowars-best-v2-${game.mission.id}-${game.difficulty.name}`,stored=Number(localStorage.getItem(key)),best=stored>0&&Number.isFinite(stored)?Math.min(stored,game.time):game.time;
@@ -218,6 +240,8 @@ function updateUI() {
   prop($('operation-id'),'textContent',`OPERATION 00${game.missionIndex+1} / ${game.mission.district.toUpperCase()} / ${game.difficulty.name.toUpperCase()}`);
   prop($('operation-name'),'textContent',game.mission.name.toUpperCase());prop($('mission-directive'),'textContent',game.mission.brief);
   prop($('brief-copy'),'textContent',game.mission.brief);prop($('brief-cash'),'textContent',campaign.cash.toLocaleString('en-AU'));
+  prop($('brief-title'),'textContent',game.mission.kind==='hold'?'KEEP THE SIGNAL.':game.mission.kind==='escort'?'GET THEM OUT.':game.mission.kind==='lockdown'?'BEAT THE LOCKDOWN.':'POWER IS A HOSTILE ASSET.');
+  prop($('brief-challenges'),'textContent',`OPTIONAL: ALL FOUR HOME · NO ABILITIES · UNDER ${timeText(game.mission.parTime)}`);
   prop($('headquarters'),'disabled',game.phase!=='briefing');
   prop($('clock'),'textContent',timeText(game.time));
   prop($('phase'),'textContent',game.phase==='briefing'?'AWAITING DEPLOYMENT':game.phase==='won'?'CONTRACT COMPLETE':game.phase==='lost'?'CONTRACT TERMINATED':game.paused?'TACTICAL PAUSE':game.alert>0?'SECURITY ALERT':'OPERATION ACTIVE');
@@ -225,6 +249,7 @@ function updateUI() {
   prop($('pause-banner'),'hidden',!game.paused||game.phase!=='active'||graphicsLost);
   prop($('pause'),'innerHTML',game.paused?'RESUME <kbd>SPACE</kbd>':'PAUSE <kbd>SPACE</kbd>');
   const active=game.phase==='active';prop($('pause'),'disabled',!active);
+  updateMissionStatus(active);
   prop($('hold-fire'),'textContent',game.holdFire?'HOLDING FIRE':'FIRE AT WILL');attr($('hold-fire'),'aria-pressed',String(game.holdFire));prop($('hold-fire'),'disabled',!active);
   prop(abilityCounts.medkit,'textContent',String(game.medkits).padStart(2,'0'));prop($('medkit'),'disabled',!active||game.medkits===0||game.paused);
   prop(abilityCounts.pulse,'textContent',String(game.pulses).padStart(2,'0'));prop($('pulse'),'disabled',!active||game.pulses===0||game.paused);
@@ -244,17 +269,41 @@ function updateUI() {
     if(key!=='exit'){
       const index=key==='relay'?0:1;
       prop(ui.title,'textContent',game.mission.objectives[index]);prop(ui.copy,'textContent',game.mission.labels[index]);prop(labels[key],'textContent',`${key==='relay'?'01':'02'} / ${game.mission.labels[index]}`);
+    }else{
+      prop(ui.title,'textContent',game.courier?'Protect the courier home':'Leave no one behind');
+      prop(ui.copy,'textContent',game.courier?'Courier and surviving agents must reach extraction':'Extract every surviving agent');
     }
     css(ui.button,'current',key===objective&&!done);css(ui.button,'done',done);prop(ui.button,'disabled',!active);
     prop(ui.number,'textContent',done?'✓':key==='relay'?'01':key==='vault'?'02':'03');
-    const percent=key==='relay'?game.relay.progress/3:key==='vault'?game.vault.progress/5:game.extraction/2;
+    const percent=(key==='exit'?game.extraction:game[key].progress)/objectiveDuration(game,key);
     style(ui.progress.style,'width',`${Math.min(100,percent*100)}%`);
   }
   const logKey=game.log.map(l=>`${l.time}:${l.text}`).join('|');
-  if(lastLog!==logKey){lastLog=logKey;$('comms').replaceChildren(...game.log.slice(0,3).map(l=>{const el=document.createElement('li');el.textContent=l.text;return el;}));if(game.log[0])announce(game.log[0].text);}
+  if(lastLog!==logKey){lastLog=logKey;$('comms').replaceChildren(...game.log.slice(0,3).map(l=>{const el=document.createElement('li');el.textContent=l.text;return el;}));announce(game.log[0]?.text??'');}
   let selected=0;for(const a of game.agents)if(a.hp>0&&game.selected.has(a.id))selected++;
   prop($('context-hint'),'textContent',active?`${selected} SELECTED / WASD CAMERA / Q SELECT ALL / SPACE PAUSE`:'SELECT · RESEARCH · DEPLOY');
   if(game.phase==='won'||game.phase==='lost')showDebrief();
+}
+function updateMissionStatus(active) {
+  const mission=game.mission,courier=game.courier;
+  prop($('mission-console'),'hidden',!mission.kind);
+  prop($('escort-order'),'hidden',!courier?.active);
+  prop($('escort-order'),'disabled',!active||!courier||courier.hp<=0||!game.agents.some(a=>a.hp>0&&game.selected.has(a.id)));
+  attr($('escort-order'),'aria-pressed',String(!!game.escortFollowing));
+  prop($('courier-key'),'hidden',!courier);
+  css($('radar'),'escort-radar',!!courier);
+  let text='',urgent=false;
+  if(mission.kind==='hold'){
+    text=!game.relay.done?'SIEGE · DISABLE THE RELAY TO OPEN THE TRANSMITTER':game.vault.done?'TRANSMISSION COMPLETE · EXTRACT EVERY SURVIVING AGENT':game.holdContested?'TRANSMITTER CONTESTED · CLEAR NEARBY SECURITY TO CONTINUE':`HOLD TRANSMITTER · ${Math.floor(game.vault.progress)}/${objectiveDuration(game,'vault')}s · KEEP AN AGENT BESIDE THE TERMINAL`;
+    urgent=!!game.holdContested;
+  }else if(mission.kind==='escort'&&courier){
+    text=!courier.active?'WITNESS SECURED · REACH AND RELEASE THE COURIER':courier.hp<=0?'COURIER LOST':`COURIER ${Math.ceil(courier.hp)}/${courier.maxHp} HP · ${game.escortFollowing?'ESCORT DETAIL ACTIVE':'STAY CLOSE · ASSIGN AN ESCORT DETAIL'}`;
+    urgent=courier.active&&courier.hp<courier.maxHp*.35;
+  }else if(mission.kind==='lockdown'){
+    text=game.lockdownRemaining===null?'LOCKDOWN DORMANT · RELAY SABOTAGE STARTS THE EXTRACTION CLOCK':`LOCKDOWN IN ${timeText(Math.ceil(game.lockdownRemaining))} · ${game.vault.done?'REACH EXTRACTION':'SEIZE THE GOLDEN PARACHUTE'}`;
+    urgent=game.lockdownRemaining!==null&&game.lockdownRemaining<=30;
+  }
+  prop($('mission-status'),'textContent',text);attr($('mission-status'),'title',text);css($('mission-console'),'urgent',urgent);
 }
 function updateLabels() {
   for(const key of ['relay','vault','exit']) {
@@ -263,6 +312,13 @@ function updateLabels() {
     prop(label,'hidden',s.x<0||s.y<40||s.x>renderer.width||s.y>renderer.height-30);
     css(label,'inactive',key==='relay'?game.relay.done:key==='vault'?!game.relay.done||game.vault.done:!game.vault.done);
   }
+  const courier=game.courier,label=labels.courier;
+  if(!courier){prop(label,'hidden',true);return;}
+  const s=renderer.project(courier.x,courier.y,1.4);
+  style(label.style,'left',`${s.x}px`);style(label.style,'top',`${s.y}px`);
+  prop(label,'hidden',s.x<0||s.y<40||s.x>renderer.width||s.y>renderer.height-30);
+  prop(label,'textContent',courier.hp<=0?'COURIER LOST':courier.active?`COURIER / ${Math.ceil(courier.hp)} HP`:'COURIER / AWAITING RELEASE');
+  css(label,'inactive',!courier.active||courier.hp<=0);
 }
 function frame(now) {
   if(document.hidden){last=0;requestAnimationFrame(frame);return;}

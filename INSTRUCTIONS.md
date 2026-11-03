@@ -1,4 +1,4 @@
-# Field manual · v0.3.0
+# Field manual · v0.4.0
 
 Open [CorpoWars](https://qsolkcb.github.io/CorpoWars/) in a WebGL2-capable browser.
 
@@ -39,15 +39,64 @@ separate by mission and mode.
    codes and reach the freight gate from a northern insertion.
 3. **Boardroom Blackout / Meridian Spire:** disable the executive shield, seize
    the ownership registry and leave through the western service route.
+4. **Signal Siege / Copperline Grid:** restore the carrier, transmit for twelve
+   uncontested seconds against two security waves, then extract north-east.
+5. **Witness Protection / Cold Storage:** unlock the cryostore, release the
+   courier and escort them to the western transfer gate.
+6. **Golden Parachute / Obsidian Exchange:** cut the failsafe, seize the
+   severance fund and extract before the district locks down.
 
 Stand near a terminal to hack it automatically. The first objective unlocks the
 second. Extract every surviving agent to win. Contracts pay **2,400 / 3,200 /
-4,000 credits on first completion only**. Replays and difficulty changes cannot
+4,000 / 4,800 / 5,600 / 7,200 credits on first completion only**. Replays and difficulty changes cannot
 farm credits. Agents refit and medical/EMP supplies restock between attempts.
+
+**Signal Siege:** leave a living agent stationary within 1.7 tiles of the
+transmitter with clear line of sight. A living guard within three unobstructed
+tiles contests the zone unless stunned or afraid. Contest or abandonment drains
+progress at half a second per second. Head optics do not accelerate this
+twelve-second transmission. Each of the two attack waves spawns once, even if
+progress falls back. The zone outline and status bar identify a contest.
+
+**Witness Protection:** the courier becomes vulnerable after release. Press
+**Q**, then **C / Escort courier** to assign the squad to accompany them. The
+courier follows a route to extraction, moving only while a living agent is
+within six tiles with clear line of sight. Escort orders continually guide the
+assigned agents ahead along that route; moving, attacking or stopping manually
+cancels automatic escort. The extraction objective button also assigns an
+escort once the courier is released. Every surviving agent **and the living
+courier** must reach the exit. Courier death loses the contract. Medical patches
+heal selected agents, not the courier. Their cyan marker, radar and HP readout
+keep them identifiable behind buildings.
+
+**Golden Parachute:** the lockdown starts when the first terminal finishes,
+giving **180 simulated seconds in Relaxed / 120 in Hostile**. Tactical pause
+freezes it. An extraction completed on the deadline wins; otherwise expiration
+loses the contract. Plan the escape route before disabling the failsafe.
+
+New districts add **Bulwarks**, slow guards with more HP and 25% bullet armour,
+and **Marksmen**, fragile long-range guards with stronger, slower shots. The
+broad shield and long-barrel/optic silhouettes distinguish their roles. Existing
+weapons, research, EMP and panic remain available to counter them.
+
+## Optional challenges
+
+Every contract has three badges: **Clean Extraction** (all four agents alive),
+**Economy of Force** (no medical patches, EMP or emitted panic bursts), and
+**Against the Clock** (finish within the headquarters par time). Arming panic
+without emitting a burst does not spend the badge. Pause does not advance the
+mission clock. Expansion pars are **45 / 35 / 45 seconds**, rewarding a prepared
+loadout and direct routing; beating par is optional for a win.
+
+Badges appear in the debrief and headquarters. They accumulate across wins,
+separately for each contract and difficulty, and grant no additional credits.
+Replays can improve badges without changing one-time payouts.
 
 Purchases and completed contracts save automatically in this browser, when
 storage is available. Reloading returns to the briefing; mission positions are
 not saved. **New Campaign** requires a second click before resetting progression.
+Existing v0.3 campaign saves retain their credits, purchases and completed
+contracts. Completing the original three unlocks Signal Siege in headquarters.
 
 ## Controls
 
@@ -68,6 +117,7 @@ not saved. **New Campaign** requires a second click before resetting progression
 | M / X | Medical kit / EMP |
 | P | Toggle panic field |
 | B | Cycle selected AUG conversions (reload required) |
+| C / Escort courier | Assign selected living agents to accompany a released courier |
 | H / T | Hold fire / building cutaway |
 | ? | Field manual |
 

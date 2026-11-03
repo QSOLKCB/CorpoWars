@@ -43,3 +43,13 @@ are synthesised locally; no audio files are downloaded.
 Owen Gun, AUG and Over & Under names label fictional game-balance loadouts.
 AUG calibre changes are game conversion modes, not real-world compatibility
 claims. All weapon and agent visuals remain original geometric meshes.
+
+## v0.4.0 Hostile Expansion
+
+Copperline Grid, Cold Storage and Obsidian Exchange use original 36 × 36 block
+layouts, mission text and progression data authored for CorpoWars. The new
+palettes, transformer/cooling/antenna rooftop geometry, Bulwark shields, Marksman
+optics and courier silhouette are programmatic meshes in `renderer.js`. Hold
+zones, escort behavior, challenge badges and lockdown rules are original game
+logic. No downloaded artwork, samples, models, fonts or third-party game assets
+are introduced. The VANILLAJS/OPT performance attribution in NOTICE remains.

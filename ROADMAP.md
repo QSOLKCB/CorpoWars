@@ -27,12 +27,23 @@
 - [x] Original mathematical tracker soundtrack with independent audio controls
 - [x] Pages deployment gated on simulation and full Chromium campaign checks
 
+## Slice 4 · delivered in v0.4.0 — Hostile Expansion
+
+- [x] Signal Siege, Witness Protection and Golden Parachute
+- [x] Three new connected district layouts with distinct procedural visuals
+- [x] Contested transmission, bounded security waves, vulnerable courier escort and lockdown deadline
+- [x] Bulwark and Marksman enemy roles with readable silhouettes
+- [x] Three optional badges per contract/difficulty, without duplicate credit payouts
+- [x] Existing v1 campaign save continuity and six-contract progression
+- [x] Mission HUD, courier radar/escort controls and debrief challenge results
+- [x] Simulation failure/boundary tests and packaged browser expansion playthroughs
+
 ## Next
 
 - [ ] In-mission saves and replayable command logs
 - [ ] Cover, suppression, civilian behaviours and noncombat mission variants
 - [ ] Physical mobile, Firefox, Safari and multiple GPU/driver validation
-- [ ] More districts and a branching territory campaign
+- [ ] Branching territory campaign beyond the six current districts
 - [ ] Controllable vehicles, interiors and vertical traversal
 - [ ] Destructible structures and map editing
 
