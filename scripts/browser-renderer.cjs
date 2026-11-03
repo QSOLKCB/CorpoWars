@@ -22,7 +22,7 @@ const server=createServer(async(req,res)=>{
   try {
     await new Promise(done=>server.listen(0,'127.0.0.1',done));
     browser=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
-    const page=await browser.newPage(),errors=[];
+    const page=await browser.newPage({deviceScaleFactor:2}),errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     const result=await page.evaluate(async()=>{
@@ -44,20 +44,23 @@ const server=createServer(async(req,res)=>{
       observer.disconnect();
       const {createGame}=await import('/src/simulation.js');
       const {createCampaign}=await import('/src/campaign.js');
-      const fresh=document.createElement('canvas'),cached=document.createElement('canvas');
-      fresh.width=fresh.height=cached.width=cached.height=216;
-      const freshContext=fresh.getContext('2d'),cachedContext=cached.getContext('2d');
       const background=new MinimapBackground(document.createElement('canvas'));
       let minimapCases=0;
       for(let mission=0;mission<3;mission++){
         const game=createGame(undefined,createCampaign(),mission);
         for(let change=0;change<5;change++){
+          // Read each destination once. Chromium can switch frequently-read
+          // canvases to software rasterization; the retained source is never
+          // read back by the game, so compare matching native raster backends.
+          const fresh=document.createElement('canvas'),cached=document.createElement('canvas');
+          fresh.width=fresh.height=cached.width=cached.height=216;
+          const freshContext=fresh.getContext('2d'),cachedContext=cached.getContext('2d');
           if(change===2)game.world.buildings[0].x+=.125;
           if(change===3)game.relay.y+=.25;
           if(change===4)game.world.buildings.pop();
           drawMinimapBackground(freshContext,game);background.draw(cachedContext,game);
           const a=freshContext.getImageData(0,0,216,216).data,b=cachedContext.getImageData(0,0,216,216).data;
-          for(let i=0;i<a.length;i++)if(a[i]!==b[i])throw Error(`Minimap ${mission}/${change} pixel byte ${i} differs`);
+          for(let i=0;i<a.length;i++)if(a[i]!==b[i])throw Error(`Minimap ${mission}/${change} pixel byte ${i}, fresh ${a[i]}, cached ${b[i]}`);
           minimapCases++;
         }
       }
