@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, createWorld, findPath, random, walkable } from '../src/simulation.js';
+import { MISSIONS } from '../src/campaign.js';
 import { findPath as reference } from '../scripts/navigation-reference.mjs';
 
 function compare(world, start, goal) {
@@ -10,7 +11,7 @@ function compare(world, start, goal) {
 
 test('heap navigation preserves every reference waypoint and tie across all districts', () => {
   const rng = random(0x425354);
-  for (let mission = 0; mission < 3; mission++) {
+  for (let mission = 0; mission < MISSIONS.length; mission++) {
     const {world, relay, vault, exit, agents} = createGame(undefined, undefined, mission);
     for (const start of agents) for (const goal of [relay, vault, exit]) compare(world, start, goal);
     const cells=[];

@@ -18,3 +18,33 @@ main{height:calc(100dvh - 64px);min-height:590px;display:flex;flex-direction:col
 .research-node.root-node::before{display:none}.research-node{min-height:180px}#hq-ready{position:sticky;bottom:-1px;z-index:2;box-shadow:0 -8px 18px #161e20}
 .difficulty-choice{font:9px var(--mono);color:var(--amber);display:flex;flex-direction:column;gap:8px;margin:12px 0}.difficulty-choice select{font-size:9px;padding:9px 5px}
 @media(max-width:760px){.difficulty-choice{grid-column:1/-1;margin:6px 0}}
+
+/* v0.4 special-operation conditions stay in normal layout above the field. */
+.mission-console{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;min-width:0;padding:8px 14px;background:#182627;border-bottom:1px solid #456263;color:#a7d0c6}
+.mission-console p{min-width:0;margin:0;font:8px/1.5 var(--mono);letter-spacing:.45px;overflow-wrap:anywhere}
+.mission-console button{flex-shrink:0;font-size:8px;padding:6px 9px;border-color:#648f91;color:#a6e5e2}
+.mission-console.urgent{background:#372620;color:#f2b78c;border-color:#967454}
+.mission-console.urgent button{border-color:#a88363}
+.courier-dot{background:#80d7df}
+.escort-radar .map-key{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.courier-label{color:#b7eef0;border-color:#80d7df;background:#10252ae8}
+.briefing{max-height:calc(100% - 70px);overflow:auto;scrollbar-width:thin;scrollbar-color:#465d57 #111719}
+.briefing .brief-challenges{font:7px/1.6 var(--mono);color:#b9c5a3;letter-spacing:.3px;margin:10px 0 12px}
+#challenge-summary{margin:20px 0 10px;letter-spacing:.6px;line-height:1.6}
+#challenge-results{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.challenge-result{display:flex;flex-direction:column;gap:7px;padding:11px;border:1px solid #3b4e4c;background:#111b1e;min-width:0}
+.challenge-result strong{font:9px/1.5 var(--mono);color:#82958e}
+.challenge-result span{font:9px/1.5 var(--sans);color:var(--muted)}
+.challenge-result.earned{border-color:#8ba87b;background:#93b77a0b}
+.challenge-result.earned strong{color:#c9db9b}
+.expansion-manual{border-top:1px solid var(--line);padding-top:12px}
+@media(max-width:760px){
+  .mission-console{padding:6px 8px;gap:7px;order:0}
+  .mission-console p{font-size:6px;letter-spacing:.1px;line-height:1.5}
+  .mission-console button{font-size:6px;padding:6px;max-width:100px}
+  .mission-console button kbd{display:none}
+  .briefing .brief-challenges{font-size:6px;margin:8px 0}
+  #challenge-results{grid-template-columns:1fr}
+  .challenge-result{padding:9px;gap:4px}
+  #challenge-summary{font-size:7px}
+}

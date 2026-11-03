@@ -34,7 +34,7 @@ jobs:
           if-no-files-found: ignore
   browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,6 +52,8 @@ jobs:
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-renderer.cjs
       - name: Play the campaign and validate headquarters in Chromium WebGL2
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
+      - name: Play the expansion and migrate an existing campaign in Chromium WebGL2
+        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-expansion.cjs
       - name: Retain visual evidence
         if: always()
         uses: actions/upload-artifact@v4
