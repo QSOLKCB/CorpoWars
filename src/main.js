@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createGame, startGame, tick, STEP, selectAgents, orderMove, orderAttack, orderEscort, objectiveDuration, stopAgents, medkit, pulse, visibleGuard, clamp, cycleMode, togglePanic } from './simulation.js';
+import { aimManualFire, manualFire, createGame, startGame, tick, STEP, selectAgents, orderMove, orderAttack, orderEscort, objectiveDuration, stopAgents, medkit, pulse, visibleGuard, clamp, cycleMode, togglePanic } from './simulation.js';
 import { createCampaign, decodeCampaign, SAVE_KEY, WEAPONS, AUG_MODES, MISSIONS, settleMission } from './campaign.js';
+import { objectiveKeys, captureKeys, currentObjectiveKey, objectiveLabel } from './objectives.js';
 import { challengeResults, recordChallenges } from './challenges.js';
 import { headquarters } from './headquarters.js';
 import { Renderer } from './renderer.js';
@@ -17,32 +18,41 @@ let fpsFrames=0,fpsElapsed=0;
 function graphicsError(message) {$('graphics-error').hidden=false;$('graphics-message').textContent=message;$('deploy').disabled=true;game.paused=true;}
 try {renderer=new Renderer(canvas,game);} catch(error) {graphicsError(error.message);}
 $('reload').addEventListener('click',()=>location.reload());
-canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();graphicsLost=true;graphicsError('The graphics context was interrupted. Reconnect to restart the mission, or wait for your browser to restore it.');});
+canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();graphicsLost=true;cancelDrag();graphicsError('The graphics context was interrupted. Reconnect to restart the mission, or wait for your browser to restore it.');});
 canvas.addEventListener('webglcontextrestored',()=>{
-  try {const old=renderer;renderer=new Renderer(canvas,game);if(old){renderer.focus(old.camera,true);renderer.zoom=old.zoom;renderer.cutaway=old.cutaway;renderer.pixelRatio=old.pixelRatio;}graphicsLost=false;$('graphics-error').hidden=true;$('deploy').disabled=false;}
+  try {const old=renderer;renderer=new Renderer(canvas,game);if(old){renderer.focus(old.camera,true);renderer.zoom=old.zoom;renderer.cutaway=old.cutaway;renderer.pixelRatio=old.pixelRatio;renderer.turn=old.turn;}graphicsLost=false;$('graphics-error').hidden=true;$('deploy').disabled=false;}
   catch(error){graphicsError(error.message);}
 });
 
 for(const a of game.agents) {
   const button=document.createElement('button');button.className='agent selected';button.id=`agent-${a.id}`;button.setAttribute('aria-pressed','true');
   button.innerHTML=`<span class="agent-number">0${a.id+1}</span><span class="agent-info"><strong>${a.name}</strong><small class="weapon-name">${a.role}</small><span class="health-track"><span></span></span><small class="health-text"></small></span>`;
-  button.addEventListener('click',event=>{selectAgents(game,[a.id],event.shiftKey);updateUI();});
+  button.addEventListener('click',event=>{select([a.id],event.shiftKey);updateUI();});
   button.addEventListener('dblclick',()=>focusSquad());$('agents').append(button);
   agentUI.set(a.id,{button,health:button.querySelector('.health-track span'),healthText:button.querySelector('.health-text'),weapon:button.querySelector('.weapon-name')});
 }
-const labels={};
-for(const [key,text] of [['relay','01 / RELAY'],['vault','02 / LEDGER'],['exit','03 / EXTRACT']]) {
-  const label=document.createElement('span');label.className='world-label';label.textContent=text;$('world-labels').append(label);labels[key]=label;
+const labels={courier:$('courier-label')},objectiveUI={};
+$('world-labels').append(labels.courier);
+function prepareObjectives() {
+  for(const [key,ui] of Object.entries(objectiveUI))if(!['relay','vault','exit'].includes(key)){ui.button.remove();labels[key].remove();delete labels[key];delete objectiveUI[key];}
+  for(const key of objectiveKeys(game)) {
+    let button=document.getElementById(`${key}-order`);
+    if(!button){button=document.createElement('button');button.id=`${key}-order`;button.className='objective';button.dataset.objective=key;button.innerHTML='<span class="objective-num"></span><span><strong></strong><small></small><span class="progress-track"><span></span></span></span><span class="objective-arrow">↗</span>';document.querySelector('.objectives').insertBefore(button,$('exit-order'));}
+    if(key!=='exit')document.querySelector('.objectives').insertBefore(button,$('exit-order'));
+    if(!objectiveUI[key]){
+      const label=document.createElement('span');label.className='world-label';$('world-labels').append(label);labels[key]=label;
+      objectiveUI[key]={button,title:button.querySelector('strong'),copy:button.querySelector('small'),number:button.querySelector('.objective-num'),progress:button.querySelector('.progress-track span')};
+      button.addEventListener('click',()=>{
+        if(key==='exit'&&game.courier?.active){escort();return;}
+        const p=game[key];if(orderMove(game,p.x,p.y)){setFollow(false);renderer?.focus(p);announce(`Squad ordered to ${objectiveLabel(game,key)}.`);}updateUI();
+      });
+    }
+  }
 }
-labels.courier=$('courier-label');$('world-labels').append(labels.courier);
-
-const objectiveUI={};
-for(const key of ['relay','vault','exit']) {
-  const button=$(`${key}-order`);
-  objectiveUI[key]={button,title:button.querySelector('strong'),copy:button.querySelector('small'),number:button.querySelector('.objective-num'),progress:$(`${key}-progress`)};
-}
+prepareObjectives();
 const abilityCounts={medkit:$('medkit').querySelector('span'),pulse:$('pulse').querySelector('span'),panic:$('panic').querySelector('span')};
 
+function select(ids,additive=false){cancelDrag();selectAgents(game,ids,additive);}
 function focusSquad() {
   if(!renderer)return;
   let x=0,y=0,count=0;
@@ -57,7 +67,7 @@ function saveCampaign() {
   $('save-status').textContent=saveNotice;
 }
 function prepareMission(index=campaign.mission) {
-  const previous=game.missionIndex;game=createGame(undefined,campaign,index);finished=false;hover=null;lastLog=null;accumulator=0;keys.clear();panDirection=null;cancelDrag();
+  const previous=game.missionIndex;game=createGame(undefined,campaign,index);finished=false;hover=null;lastLog=null;prepareObjectives();accumulator=0;keys.clear();panDirection=null;cancelDrag();
   if(renderer){if(previous!==index)renderer.makeCity(game.world);renderer.focus({x:game.mission.spawn[0]+1.5,y:game.mission.spawn[1]},true);}
   updateUI();
 }
@@ -67,12 +77,12 @@ $('headquarters').addEventListener('click',openHQ);$('brief-hq').addEventListene
 $('hq').addEventListener('close',()=>{keys.clear();$('deploy').focus();});
 function reset(index=game.missionIndex) {
   $('debrief').close();$('manual').close();prepareMission(index);
-  $('briefing').hidden=false;if(renderer){renderer.zoom=1;renderer.cutaway=false;}
+  $('briefing').hidden=false;if(renderer){renderer.zoom=1;renderer.cutaway=false;renderer.turn=0;}
   $('cutaway').setAttribute('aria-pressed','false');updateUI();$('deploy').focus();
 }
 function setPause() {
   if(game.phase!=='active'||graphicsLost)return;
-  game.paused=!game.paused;accumulator=0;updateUI();announce(game.paused?'Tactical pause. Orders can be issued.':'Simulation resumed.');
+  cancelDrag();game.paused=!game.paused;accumulator=0;updateUI();announce(game.paused?'Tactical pause. Orders can be issued.':'Simulation resumed.');
 }
 function autoPause() {keys.clear();panDirection=null;cancelDrag();last=0;fpsFrames=0;fpsElapsed=0;sound.audible(false);if(game.phase==='active'){game.paused=true;accumulator=0;updateUI();}}
 function openManual() {helpWasPaused=game.paused;if(game.phase==='active')game.paused=true;accumulator=0;keys.clear();panDirection=null;cancelDrag();$('manual').showModal();updateUI();}
@@ -84,9 +94,14 @@ $('music').addEventListener('click',async()=>{const enabled=await sound.toggleMu
 $('music-volume').addEventListener('input',event=>sound.setVolume(Number(event.target.value)/100));
 $('help').addEventListener('click',openManual);
 $('restart').addEventListener('click',()=>reset());$('retry').addEventListener('click',()=>{reset(campaign.mission);openHQ();});
-$('select-all').addEventListener('click',()=>{selectAgents(game,game.agents.map(a=>a.id));updateUI();});
+$('select-all').addEventListener('click',()=>{select(game.agents.map(a=>a.id));updateUI();});
 $('pause').addEventListener('click',setPause);
-function heal() {if(!medkit(game))announce(game.paused?'Resume time to use a patch.':'Select an injured living agent.');updateUI();}
+function heal() {
+  const before=game.reserveMedkits;
+  if(!medkit(game))announce(game.paused?'Resume time to use a patch.':'Select an injured living agent.');
+  if(game.reserveMedkits<before){campaign.patchesUsed+=before-game.reserveMedkits;saveCampaign();}
+  updateUI();
+}
 function emp() {if(!pulse(game))announce(game.paused?'Resume time to use EMP.':'Select a living agent with EMP charges available.');updateUI();}
 function hold() {if(game.phase!=='active')return;game.holdFire=!game.holdFire;updateUI();}
 function panic() {togglePanic(game);updateUI();}
@@ -111,10 +126,7 @@ for(const [direction,vector] of Object.entries({up:[0,-1],left:[-1,0],down:[0,1]
   button.addEventListener('click',event=>{if(event.detail===0){setFollow(false);renderer?.pan(vector[0]*80,vector[1]*80);}});
 }
 $('zoom-in').addEventListener('click',()=>renderer?.zoomBy(1.2));$('zoom-out').addEventListener('click',()=>renderer?.zoomBy(1/1.2));
-for(const key of ['relay','vault','exit']) $(`${key}-order`).addEventListener('click',()=>{
-  if(key==='exit'&&game.courier?.active){escort();return;}
-  const p=game[key];if(orderMove(game,p.x,p.y)){setFollow(false);renderer?.focus(p);announce(`Squad ordered to ${key==='exit'?'extraction':key}.`);}updateUI();
-});
+for(const [id,direction] of [['rotate-left',-1],['rotate-right',1]])$(id).addEventListener('click',()=>{cancelDrag();renderer?.rotate(direction);});
 
 function local(event) {const rect=canvas.getBoundingClientRect();return {x:event.clientX-rect.left,y:event.clientY-rect.top};}
 function pickUnit(point,units) {
@@ -126,16 +138,23 @@ function pickUnit(point,units) {
   }
   return closest;
 }
-function cancelDrag() {drag=null;$('selection-box').hidden=true;}
+function aimAt(p) {
+  const enemy=pickUnit(p,game.guards.filter(e=>visibleGuard(game,e))),world=enemy??renderer.unproject(p.x,p.y);
+  aimManualFire(game,world.x,world.y);
+}
+function cancelDrag() {game.manualAim=null;drag=null;$('selection-box').hidden=true;}
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('pointerdown',event=>{
   if(!renderer||graphicsLost||game.phase!=='active'||drag)return;
+  if(event.button===2&&game.paused)return;
   canvas.focus();const p=local(event);drag={id:event.pointerId,button:event.button,start:p,last:p,shift:event.shiftKey};canvas.setPointerCapture(event.pointerId);event.preventDefault();
+  if(event.button===2){aimAt(p);if(game.manualAim)manualFire(game,game.manualAim.id,game.manualAim.x,game.manualAim.y);updateUI();}
 });
 canvas.addEventListener('pointermove',event=>{
   if(!renderer)return;const p=local(event);hover=renderer.unproject(p.x,p.y);
   if(!drag||drag.id!==event.pointerId)return;
-  if(drag.button===1){setFollow(false);renderer.pan(drag.last.x-p.x,drag.last.y-p.y);}
+  if(drag.button===2)aimAt(p);
+  else if(drag.button===1){setFollow(false);renderer.pan(drag.last.x-p.x,drag.last.y-p.y);}
   else if(drag.button===0&&Math.hypot(p.x-drag.start.x,p.y-drag.start.y)>7) {
     const box=$('selection-box');box.hidden=false;style(box.style,'left',`${Math.min(p.x,drag.start.x)}px`);style(box.style,'top',`${Math.min(p.y,drag.start.y)}px`);style(box.style,'width',`${Math.abs(p.x-drag.start.x)}px`);style(box.style,'height',`${Math.abs(p.y-drag.start.y)}px`);
   }
@@ -144,20 +163,20 @@ canvas.addEventListener('pointermove',event=>{
 canvas.addEventListener('pointerup',event=>{
   if(!drag||drag.id!==event.pointerId||!renderer)return;
   const d=drag,p=local(event);cancelDrag();if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);
-  if(d.button===1)return;
+  if(d.button===1||d.button===2)return;
   if(d.button===0&&Math.hypot(p.x-d.start.x,p.y-d.start.y)>7) {
     const ids=game.agents.filter(a=>{const s=renderer.project(a.x,a.y,.65);return s.x>=Math.min(p.x,d.start.x)&&s.x<=Math.max(p.x,d.start.x)&&s.y>=Math.min(p.y,d.start.y)&&s.y<=Math.max(p.y,d.start.y);}).map(a=>a.id);
-    selectAgents(game,ids,d.shift);
+    select(ids,d.shift);
   } else {
     const agent=d.button===0?pickUnit(p,game.agents):null,enemy=pickUnit(p,game.guards.filter(e=>visibleGuard(game,e)));
-    if(agent)selectAgents(game,[agent.id],d.shift);
+    if(agent)select([agent.id],d.shift);
     else if(enemy)orderAttack(game,enemy.id);
     else {const world=renderer.unproject(p.x,p.y);orderMove(game,world.x,world.y);}
   }
   updateUI();
 });
 canvas.addEventListener('pointercancel',cancelDrag);canvas.addEventListener('lostpointercapture',cancelDrag);
-canvas.addEventListener('pointerleave',()=>{hover=null;});
+canvas.addEventListener('pointerleave',()=>{hover=null;if(drag?.button===2)cancelDrag();});
 canvas.addEventListener('wheel',event=>{event.preventDefault();if(renderer)renderer.zoomBy(event.deltaY>0?.9:1.1);},{passive:false});
 $('minimap').addEventListener('click',event=>{
   if(!renderer)return;const rect=$('minimap').getBoundingClientRect();
@@ -177,8 +196,9 @@ document.addEventListener('keydown',event=>{
   if(!renderer||graphicsLost)return;
   keys.add(key);
   if(key===' ')setPause();
-  else if(/^[1-4]$/.test(key)){selectAgents(game,[Number(key)-1],event.shiftKey);updateUI();}
-  else if(key==='q'){selectAgents(game,game.agents.map(a=>a.id));updateUI();}
+  else if(/^[1-4]$/.test(key)){select([Number(key)-1],event.shiftKey);updateUI();}
+  else if(key==='q'){select(game.agents.map(a=>a.id));updateUI();}
+  else if(key==='['||key===']'){cancelDrag();renderer.rotate(key==='['?-1:1);}
   else if(key==='f')focusSquad();
   else if(key==='t')cutaway();
   else if(key==='m')heal();
@@ -239,6 +259,7 @@ function showDebrief() {
 function updateUI() {
   prop($('operation-id'),'textContent',`OPERATION 00${game.missionIndex+1} / ${game.mission.district.toUpperCase()} / ${game.difficulty.name.toUpperCase()}`);
   prop($('operation-name'),'textContent',game.mission.name.toUpperCase());prop($('mission-directive'),'textContent',game.mission.brief);
+  prop($('brief-captures'),'textContent',String(captureKeys(game).length));
   prop($('brief-copy'),'textContent',game.mission.brief);prop($('brief-cash'),'textContent',campaign.cash.toLocaleString('en-AU'));
   prop($('brief-title'),'textContent',game.mission.kind==='hold'?'KEEP THE SIGNAL.':game.mission.kind==='escort'?'GET THEM OUT.':game.mission.kind==='lockdown'?'BEAT THE LOCKDOWN.':'POWER IS A HOSTILE ASSET.');
   prop($('brief-challenges'),'textContent',`OPTIONAL: ALL FOUR HOME · NO ABILITIES · UNDER ${timeText(game.mission.parTime)}`);
@@ -263,25 +284,26 @@ function updateUI() {
     prop(ui.weapon,'textContent',a.weapon==='aug'?`AUG · ${AUG_MODES[a.mode].name}`:WEAPONS[a.weapon].name);
     attr(b,'aria-label',`${a.name}, ${a.role}, ${a.hp} health${selected?', selected':''}`);
   }
-  const objective=game.relay.done?game.vault.done?'exit':'vault':'relay';
-  for(const key of ['relay','vault','exit']) {
+  const objective=currentObjectiveKey(game);
+  for(const [order,key] of objectiveKeys(game).entries()) {
     const done=key==='exit'?game.phase==='won':game[key].done,ui=objectiveUI[key];
     if(key!=='exit'){
       const index=key==='relay'?0:1;
-      prop(ui.title,'textContent',game.mission.objectives[index]);prop(ui.copy,'textContent',game.mission.labels[index]);prop(labels[key],'textContent',`${key==='relay'?'01':'02'} / ${game.mission.labels[index]}`);
+      prop(ui.title,'textContent',key.startsWith('capture')?'Capture district control':game.mission.objectives[index]);prop(ui.copy,'textContent',objectiveLabel(game,key));
     }else{
       prop(ui.title,'textContent',game.courier?'Protect the courier home':'Leave no one behind');
       prop(ui.copy,'textContent',game.courier?'Courier and surviving agents must reach extraction':'Extract every surviving agent');
     }
+    prop(labels[key],'textContent',`${String(order+1).padStart(2,'0')} / ${objectiveLabel(game,key)}`);
     css(ui.button,'current',key===objective&&!done);css(ui.button,'done',done);prop(ui.button,'disabled',!active);
-    prop(ui.number,'textContent',done?'✓':key==='relay'?'01':key==='vault'?'02':'03');
+    prop(ui.number,'textContent',done?'✓':String(order+1).padStart(2,'0'));
     const percent=(key==='exit'?game.extraction:game[key].progress)/objectiveDuration(game,key);
     style(ui.progress.style,'width',`${Math.min(100,percent*100)}%`);
   }
   const logKey=game.log.map(l=>`${l.time}:${l.text}`).join('|');
   if(lastLog!==logKey){lastLog=logKey;$('comms').replaceChildren(...game.log.slice(0,3).map(l=>{const el=document.createElement('li');el.textContent=l.text;return el;}));announce(game.log[0]?.text??'');}
   let selected=0;for(const a of game.agents)if(a.hp>0&&game.selected.has(a.id))selected++;
-  prop($('context-hint'),'textContent',active?`${selected} SELECTED / WASD CAMERA / Q SELECT ALL / SPACE PAUSE`:'SELECT · RESEARCH · DEPLOY');
+  prop($('context-hint'),'textContent',active?`${selected} SELECTED / RMB: ${game.agents.find(a=>a.id===game.controlledAgent)?.name??'—'} / WASD PAN / [ ] ROTATE`:'SELECT · RESEARCH · DEPLOY');
   if(game.phase==='won'||game.phase==='lost')showDebrief();
 }
 function updateMissionStatus(active) {
@@ -306,11 +328,11 @@ function updateMissionStatus(active) {
   prop($('mission-status'),'textContent',text);attr($('mission-status'),'title',text);css($('mission-console'),'urgent',urgent);
 }
 function updateLabels() {
-  for(const key of ['relay','vault','exit']) {
+  for(const key of objectiveKeys(game)) {
     const p=game[key],s=renderer.project(p.x,p.y,key==='exit'?.2:1.2),label=labels[key];
     style(label.style,'left',`${s.x}px`);style(label.style,'top',`${s.y}px`);
     prop(label,'hidden',s.x<0||s.y<40||s.x>renderer.width||s.y>renderer.height-30);
-    css(label,'inactive',key==='relay'?game.relay.done:key==='vault'?!game.relay.done||game.vault.done:!game.vault.done);
+    css(label,'inactive',key!==currentObjectiveKey(game));
   }
   const courier=game.courier,label=labels.courier;
   if(!courier){prop(label,'hidden',true);return;}
@@ -328,7 +350,7 @@ function frame(now) {
     const dx=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'))+(panDirection?.[0]||0);
     const dy=Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'))+(panDirection?.[1]||0);
     if(dx||dy){setFollow(false);renderer.pan(dx*speed,dy*speed);}else if(follow&&game.phase==='active')focusSquad();
-    if(game.phase==='active'&&!game.paused){accumulator+=delta;while(accumulator>=STEP){tick(game);accumulator-=STEP;}}
+    if(game.phase==='active'&&!game.paused){if(drag?.button===2)aimAt(drag.last);accumulator+=delta;while(accumulator>=STEP){tick(game);accumulator-=STEP;}}
     else accumulator=0;
     for(const event of game.events)sound.play(event.type);game.events=[];
     sound.mood(game.phase!=='active'?'briefing':game.paused?'paused':game.alert>0?'combat':'patrol');

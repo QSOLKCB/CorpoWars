@@ -109,7 +109,9 @@ contracts. Completing the original three unlocks Signal Siege in headquarters.
 | F / focus button | Smoothly focus selected agents |
 | Follow | Keep selected agents in view; manual pan cancels follow |
 | Wheel / + / − | Zoom |
-| Click or right-click ground | Move selected agents |
+| Left-click ground | Move selected agents |
+| Hold right-click | Fire the controlled agent toward the pointer; release stops manual fire |
+| [ / ] or ↶ / ↷ | Rotate through four battlefield viewing angles |
 | Click an agent / drag a box | Select agents; Shift adds |
 | 1–4 / Q | Select one agent / select all |
 | Click visible hostile | Approach and focus fire |
@@ -146,3 +148,26 @@ Muted visor colours distinguish the four agents; Bulwarks retain broad shields,
 Marksmen carry long weapons/optics, and the courier carries a hard case. Soft
 contact shadows help ground the figures. Selection rings, health indicators,
 visibility rules and click targets retain their existing behavior.
+
+
+## Capture progression and field supplies
+
+Maps 1–6 require 2, 3, 4, 5, 6 and 7 captures respectively, followed by one
+extraction. The objective strip scrolls horizontally on smaller screens. Each
+control point channels for four seconds while a living agent stands nearby with
+clear line of sight. All captures are mandatory. Cold Storage secures its control
+nodes before releasing the courier; escort remains its final task.
+
+Select an agent with 1–4 or their squad card to choose the manual shooter. With a
+group selected, the most recently chosen agent fires (Q chooses VEX). Other agents
+continue their normal orders. Right-click stops the shooter's movement and shoots
+towards the pointer without chasing. It works while Hold Fire is enabled, obeys
+ammunition, reloads and range, and can miss. Cover blocks shots; friendly bodies
+stop them without damage. Pause, blur, pointer cancellation and changing selection
+clear held fire. Resume requires a fresh press.
+
+Headquarters → Armoury sells reserve patches for 250 CR, up to 12 in stock. Issued
+patches (two per deployment, four with Field Surgery) are used first. Reserves are
+spent only when used, with consumption saved immediately. Unused reserves carry
+across missions and retries. Old saves migrate with zero purchased reserves. Supply
+purchases share the equipment/research budget; replay rewards remain disabled.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { WEAPONS, AUG_MODES, RESEARCH, MISSIONS, canResearch, research, equip, missionUnlocked } from './campaign.js';
+import { WEAPONS, AUG_MODES, RESEARCH, MISSIONS, canResearch, research, equip, missionUnlocked, buyPatch, reservePatches, PATCH_COST, MAX_RESERVE_PATCHES } from './campaign.js';
 import { CHALLENGES } from './challenges.js';
 const $=id=>document.getElementById(id),money=n=>n.toLocaleString('en-AU');
 const names=['VEX','NULL','ECHO','IRON'];
@@ -10,11 +10,13 @@ export function headquarters(getCampaign, changed, newCampaign) {
     const focused=document.activeElement?.id;
     const c=getCampaign();$('cash').textContent=money(c.cash);
     $('difficulty').value=c.difficulty;
+    $('patch-stock').textContent=`${reservePatches(c)} / ${MAX_RESERVE_PATCHES} reserve patches · ${PATCH_COST} CR each`;
+    $('buy-patch').disabled=c.cash<PATCH_COST||reservePatches(c)>=MAX_RESERVE_PATCHES;
     $('mission-list').replaceChildren(...MISSIONS.map((mission,i)=>{
       const button=document.createElement('button');button.id=`contract-${i}`;button.className='contract-card';button.disabled=!missionUnlocked(c,i);button.setAttribute('aria-pressed',String(c.mission===i));
       const mechanic={hold:'HOLD THE TRANSMITTER',escort:'PROTECT THE COURIER',lockdown:'EXTRACT BEFORE LOCKDOWN'}[mission.kind]??'INFILTRATE · SEIZE · EXTRACT';
       const badges=c.challenges?.[`${mission.id}:${c.difficulty}`]??[];
-      button.innerHTML=`<small>CONTRACT 0${i+1} / ${c.completed.includes(i)?'COMPLETE':button.disabled?'LOCKED':'AVAILABLE'}</small><strong>${mission.name}</strong><span>${mission.district}</span><small>${mechanic} · PAR ${mission.parTime}s</small><small>${c.completed.includes(i)?'REPLAY · NO REWARD':`PAYS ${money(mission.reward)} CR`}</small><small class="contract-medals">${badges.length?badges.map(id=>CHALLENGES.find(challenge=>challenge.id===id).name).join(' · '):'0 / 3 CHALLENGE BADGES'} · ${c.difficulty.toUpperCase()}</small>`;
+      button.innerHTML=`<small>CONTRACT 0${i+1} / ${c.completed.includes(i)?'COMPLETE':button.disabled?'LOCKED':'AVAILABLE'}</small><strong>${mission.name}</strong><span>${mission.district}</span><small>${i+2} CAPTURES + 1 EXTRACT · ${mechanic} · PAR ${mission.parTime}s</small><small>${c.completed.includes(i)?'REPLAY · NO REWARD':`PAYS ${money(mission.reward)} CR`}</small><small class="contract-medals">${badges.length?badges.map(id=>CHALLENGES.find(challenge=>challenge.id===id).name).join(' · '):'0 / 3 CHALLENGE BADGES'} · ${c.difficulty.toUpperCase()}</small>`;
       button.addEventListener('click',()=>{c.mission=i;changed();refresh();feedback(mission.brief);});return button;
     }));
     $('loadouts').replaceChildren(...names.map((name,i)=>{
@@ -52,6 +54,7 @@ export function headquarters(getCampaign, changed, newCampaign) {
     $(`tab-${name}`).addEventListener('click',()=>tab(name));
     $(`tab-${name}`).addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?'loadout':event.key==='End'?'research':name==='loadout'?'research':'loadout';tab(next);$(`tab-${next}`).focus();}});
   }
+  $('buy-patch').addEventListener('click',()=>{if(buyPatch(getCampaign())){changed();refresh();feedback('Reserve trauma patch purchased. Issued patches are used first; reserves persist until consumed.');}});
   $('hq-close').addEventListener('click',()=>$('hq').close());$('hq-ready').addEventListener('click',()=>$('hq').close());
   $('difficulty').addEventListener('change',event=>{getCampaign().difficulty=event.target.value;changed();refresh();feedback(event.target.value==='hostile'?'Hostile: stronger, faster guards, four extra security units and shorter panic retreats.':'Relaxed: the original forgiving combat balance.');});
   $('new-campaign').addEventListener('click',()=>{

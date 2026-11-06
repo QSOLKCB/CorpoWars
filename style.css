@@ -48,3 +48,15 @@ main{height:calc(100dvh - 64px);min-height:590px;display:flex;flex-direction:col
   .challenge-result{padding:9px;gap:4px}
   #challenge-summary{font-size:7px}
 }
+
+/* Expanded operations: keep all capture orders accessible without covering play. */
+.objectives{overflow-x:auto;grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(200px,1fr)}
+.camera-rotate{position:absolute;right:18px;top:98px;z-index:3;display:flex;gap:5px}
+.camera-rotate button{background:#111719e8;font-size:18px;padding:5px 12px}
+.supply-shop{padding:12px 16px;border:1px solid var(--line);margin-bottom:14px}
+.supply-shop h3{font:11px var(--mono);color:var(--amber)}
+.supply-shop p{font-size:11px;color:var(--muted);line-height:1.6}
+.supply-shop span{display:block;margin:8px 0;font:10px var(--mono)}
+@media(max-width:760px){.camera-rotate{top:92px;right:10px}}
+
+@media(max-width:760px){.objectives{grid-auto-columns:minmax(155px,1fr)}}

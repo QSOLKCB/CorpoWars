@@ -25,6 +25,7 @@ jobs:
           node scripts/performance-render.mjs > test-results/renderer-performance.json
           node scripts/visual-polish-performance.mjs > test-results/visual-polish-performance.json
           node scripts/navigation-performance.mjs > test-results/navigation-performance.json
+          node scripts/tactical-performance.mjs > test-results/tactical-performance.json
       - run: node scripts/build.mjs
       - name: Retain performance observations
         if: always()
@@ -62,6 +63,8 @@ jobs:
             test-results/polish-*.png
             test-results/visual-polish-browser.json
           if-no-files-found: ignore
+      - name: Validate direct fire, rotating camera, supplies and expanded objectives
+        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-tactical.cjs
       - name: Play the campaign and validate headquarters in Chromium WebGL2
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
       - name: Play the expansion and migrate an existing campaign in Chromium WebGL2

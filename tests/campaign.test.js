@@ -1,3 +1,4 @@
+import { objectiveKeys } from '../src/objectives.js';
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -96,7 +97,7 @@ test('the original three districts retain distinct geometry and winnable real-co
   for(let i=0;i<3;i++) {
     const g=createGame(undefined,c,i);maps.add(g.world.blocked.join(''));startGame(g);
     for(const p of [g.relay,g.vault,g.exit,...g.agents,...g.guards])assert.ok(walkable(g.world,p.x,p.y));
-    for(const key of ['relay','vault','exit']) {
+    for(const key of objectiveKeys(g)) {
       assert.ok(orderMove(g,g[key].x,g[key].y));
       for(let n=0;n<3600&&g.phase==='active'&&(key==='exit'||!g[key].done);n++) {
         tick(g);g.events=[];for(const a of [...g.agents,...g.guards])assert.ok(walkable(g.world,a.x,a.y));

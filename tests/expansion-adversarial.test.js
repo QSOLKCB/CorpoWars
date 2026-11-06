@@ -1,3 +1,4 @@
+import { objectiveKeys } from '../src/objectives.js';
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -74,7 +75,7 @@ test('all three expansion contracts are winnable in Hostile with a legitimately 
   const campaign=veteran();
   for(let index=3;index<MISSIONS.length;index++) {
     const game=createGame(undefined,campaign,index);startGame(game);
-    for(const key of ['relay','vault','exit']) {
+    for(const key of objectiveKeys(game)) {
       assert.equal(key==='exit'&&game.courier?orderEscort(game):orderMove(game,game[key].x,game[key].y),true);
       let frames=0;
       while(frames++<6000&&game.phase==='active'&&(key==='exit'||!game[key].done)) {

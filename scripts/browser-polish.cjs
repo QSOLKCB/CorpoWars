@@ -30,7 +30,7 @@ const server=createServer(async(req,res)=>{
   let browser,page;
   try{
     await new Promise(done=>server.listen(0,'127.0.0.1',done));
-    browser=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+    browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
     page=await browser.newPage({viewport:{width:1536,height:1100},deviceScaleFactor:1});
     const errors=[];page.on('pageerror',error=>errors.push(String(error)));
     await page.goto(`http://127.0.0.1:${server.address().port}/`);

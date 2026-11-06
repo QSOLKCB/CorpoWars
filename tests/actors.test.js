@@ -71,7 +71,7 @@ test('courier identity and cache reuse stay consistent after incidental record m
 });
 
 test('dead agents and couriers retain the original eighteen-vertex corpse geometry',()=>{
-  const game=createGame(undefined,undefined,4);game.agents.forEach(a=>{a.hp=0;});game.guards=[];game.courier.hp=0;
+  const game=createGame(undefined,undefined,4);game.agents.forEach(a=>{a.hp=0;});game.guards=[];game.courier.hp=0;game.captureKeys=[];
   const captures=[];
   for(const Implementation of [Reference,Renderer]){
     const model=modelCanvas({capture:true}),renderer=new Implementation(model.canvas,game);renderer.render(game,null,1);

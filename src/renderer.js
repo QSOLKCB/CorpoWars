@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Original geometry, rendered as coloured triangles with native WebGL2.
 import { clamp, random, visibleGuard } from './simulation.js';
+import { objectiveKeys, currentObjectiveKey } from './objectives.js';
 
 
 // Original faceted character models. Four finite geometry shapes and fifteen
@@ -182,11 +183,18 @@ in vec4 a_color;
 uniform vec2 u_resolution;
 uniform vec2 u_camera;
 uniform float u_zoom;
+uniform vec2 u_rotation;
 out vec4 v_color;
 void main() {
   vec3 p = a_position;
+  vec2 camera = u_camera;
+  if (u_rotation.x != 0.0 || u_rotation.y != 0.0) {
+    float c = 1.0 + u_rotation.x, s = u_rotation.y;
+    p.xy = vec2(c*p.x-s*p.y, s*p.x+c*p.y);
+    camera = vec2(c*u_camera.x-s*u_camera.y, s*u_camera.x+c*u_camera.y);
+  }
   vec2 iso = vec2((p.x-p.y)*24.0, (p.x+p.y)*12.0-p.z*24.0);
-  vec2 cam = vec2((u_camera.x-u_camera.y)*24.0, (u_camera.x+u_camera.y)*12.0);
+  vec2 cam = vec2((camera.x-camera.y)*24.0, (camera.x+camera.y)*12.0);
   vec2 screen = (iso-cam)*u_zoom + u_resolution*0.5;
   gl_Position = vec4(screen.x/u_resolution.x*2.0-1.0, 1.0-screen.y/u_resolution.y*2.0, -(p.x+p.y+p.z)*0.011, 1.0);
   v_color = a_color;
@@ -245,6 +253,14 @@ class Mesh {
   floor(x,y,w,d,col,z=.01) {this.quadValues(x,y,z,x+w,y,z,x+w,y+d,z,x,y+d,z,...col);}
   box(x,y,w,d,h,col,base=0) {
     const c=typeof col==='string'?color(col):col,r=c[0],g=c[1],b=c[2],a=c[3],top=base+h;
+    if(this.backs) {
+      this.backs.quadValues(x,y,base,x+w,y,base,x+w,y,top,x,y,top,r*.65,g*.65,b*.65,a);
+      this.backs.quadValues(x,y,base,x,y+d,base,x,y+d,top,x,y,top,r*.82,g*.82,b*.82,a);
+    }
+    if(this.fullSides) {
+      this.quadValues(x,y,base,x+w,y,base,x+w,y,top,x,y,top,r*.65,g*.65,b*.65,a);
+      this.quadValues(x,y,base,x,y+d,base,x,y+d,top,x,y,top,r*.82,g*.82,b*.82,a);
+    }
     this.quadValues(x,y,top,x+w,y,top,x+w,y+d,top,x,y+d,top,r*1.06,g*1.06,b*1.06,a);
     this.quadValues(x,y+d,base,x+w,y+d,base,x+w,y+d,top,x,y+d,top,r*.65,g*.65,b*.65,a);
     this.quadValues(x+w,y,base,x+w,y+d,base,x+w,y+d,top,x+w,y,top,r*.82,g*.82,b*.82,a);
@@ -267,7 +283,7 @@ function geometrySignature(game,hover,alpha,guards) {
   const unit=u=>[u.x,u.y,u.prevX??u.x,u.prevY??u.y,u.id,u.team,u.hp,u.maxHp,u.fear,u.stun,u.enemyType,u.path.map(p=>[p.x,p.y])];
   const point=p=>[p.x,p.y,p.done];
   const c=game.courier,courier=c?[c.x,c.y,c.prevX??c.x,c.prevY??c.y,c.hp,c.maxHp,c.team,Boolean(c.active),Boolean(c.path?.length)]:null;
-  return JSON.stringify([game.time,game.phase,alpha,point(game.relay),point(game.vault),point(game.exit),
+  return JSON.stringify([game.time,game.phase,alpha,...objectiveKeys(game).map(key=>point(game[key])),
     [...game.selected],game.agents.map(unit),guards.map(unit),courier,game.mission.kind,Boolean(game.holdContested),
     game.effects.map(e=>[e.type,e.life,e.maxLife,e.x,e.y,e.tx,e.ty,e.weapon,e.team]),
     hover&&game.phase==='active'?[Math.floor(hover.x),Math.floor(hover.y)]:null],(_key,value)=>{
@@ -290,23 +306,24 @@ export class Renderer {
     this.canvas=canvas;
     const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
     if(!gl) throw new Error('WebGL2 is unavailable. Enable hardware acceleration or use a browser with WebGL2 support.');
-    this.gl=gl; this.camera={x:14,y:22}; this.zoom=1; this.cutaway=false; this.width=1; this.height=1;
+    this.gl=gl; this.turn=0; this.uploadSnapshots=new Map(); this.camera={x:14,y:22}; this.zoom=1; this.cutaway=false; this.width=1; this.height=1;
     this.cameraTarget={...this.camera};this.mesh=new Mesh();this.overlay=new Mesh();this.dynamicBytes=0;this.overlayBytes=0;this.pixelRatio=2;
     this.geometryKey=null;this.vaos=new Map();
-    this.stats={geometryBuilds:0,geometryHits:0,uploadedBytes:0,storageAllocations:0};
+    this.stats={objectiveBuilds:0,objectiveHits:0,geometryBuilds:0,geometryHits:0,uploadedBytes:0,storageAllocations:0};
     this.program=gl.createProgram();
     const vs=shader(gl,gl.VERTEX_SHADER,VERTEX), fs=shader(gl,gl.FRAGMENT_SHADER,FRAGMENT);
     gl.attachShader(this.program,vs);gl.attachShader(this.program,fs);gl.linkProgram(this.program);
     gl.deleteShader(vs);gl.deleteShader(fs);
     if(!gl.getProgramParameter(this.program,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(this.program));
     this.locations={pos:gl.getAttribLocation(this.program,'a_position'),color:gl.getAttribLocation(this.program,'a_color'),
-      resolution:gl.getUniformLocation(this.program,'u_resolution'),camera:gl.getUniformLocation(this.program,'u_camera'),zoom:gl.getUniformLocation(this.program,'u_zoom')};
+      resolution:gl.getUniformLocation(this.program,'u_resolution'),camera:gl.getUniformLocation(this.program,'u_camera'),zoom:gl.getUniformLocation(this.program,'u_zoom'),rotation:gl.getUniformLocation(this.program,'u_rotation')};
     this.dynamic=gl.createBuffer();this.overlayBuffer=gl.createBuffer();this.ground=gl.createBuffer();this.buildings=gl.createBuffer();
     this.makeCity(game.world); gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   }
   makeCity(world) {
-    this.geometryKey=null;
+    this.geometryKey=null;this.backReady=false;
     const ground=new Mesh(),city=new Mesh(),rng=random(world.seed+13),gl=this.gl,theme=DISTRICT_STYLES[world.theme];
+    this.groundBack=new Mesh();this.cityBack=new Mesh();ground.backs=this.groundBack;city.backs=this.cityBack;
     ground.box(-.2,-.2,world.size+.4,world.size+.4,.35,theme?.base??'#11191b',-.38);
     for(let y=0;y<world.size;y++) for(let x=0;x<world.size;x++) {
       const road=x%9<3||y%9<3, shade=.88+rng()*.18;
@@ -386,12 +403,33 @@ export class Renderer {
     if(this.canvas.width!==w||this.canvas.height!==h) {this.canvas.width=w;this.canvas.height=h;}
     if(this.viewportWidth!==w||this.viewportHeight!==h) {this.gl.viewport(0,0,w,h);this.viewportWidth=w;this.viewportHeight=h;}
   }
-  project(x,y,z=0) {return {x:((x-y)-(this.camera.x-this.camera.y))*24*this.zoom+this.width/2,y:((x+y)-(this.camera.x+this.camera.y))*12*this.zoom-z*24*this.zoom+this.height/2};}
-  unproject(x,y) {
-    const dx=(x-this.width/2)/(24*this.zoom),dy=(y-this.height/2)/(12*this.zoom);
-    return {x:this.camera.x+(dx+dy)/2,y:this.camera.y+(dy-dx)/2};
+  rotate(direction) { this.turn=((this.turn+direction)%4+4)%4; }
+  rotation() { return [[1,0],[0,1],[-1,0],[0,-1]][this.turn]; }
+  project(x,y,z=0) {
+    if(!this.turn)return {x:((x-y)-(this.camera.x-this.camera.y))*24*this.zoom+this.width/2,y:((x+y)-(this.camera.x+this.camera.y))*12*this.zoom-z*24*this.zoom+this.height/2};
+    const [c,s]=this.rotation(),dx=x-this.camera.x,dy=y-this.camera.y,rx=c*dx-s*dy,ry=s*dx+c*dy;
+    return {x:(rx-ry)*24*this.zoom+this.width/2,y:(rx+ry)*12*this.zoom-z*24*this.zoom+this.height/2};
   }
-  pan(dx,dy) {this.camera.x=clamp(this.camera.x+(dx/24+dy/12)/2/this.zoom,-2,38);this.camera.y=clamp(this.camera.y+(dy/12-dx/24)/2/this.zoom,-2,38);this.cameraTarget={...this.camera};}
+  unproject(x,y) {
+    const dx=(x-this.width/2)/(24*this.zoom),dy=(y-this.height/2)/(12*this.zoom),rx=(dx+dy)/2,ry=(dy-dx)/2;
+    const [c,s]=this.rotation();
+    return {x:this.camera.x+c*rx+s*ry,y:this.camera.y-s*rx+c*ry};
+  }
+  pan(dx,dy) {
+    const point=this.unproject(this.width/2+dx,this.height/2+dy);
+    this.camera.x=clamp(point.x,-2,38);this.camera.y=clamp(point.y,-2,38);this.cameraTarget={...this.camera};
+  }
+  drawBacks() {
+    const gl=this.gl;
+    if(!this.backReady) {
+      this.backGroundBuffer??=gl.createBuffer();this.backCityBuffer??=gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.backGroundBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.groundBack.view(),gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.backCityBuffer);gl.bufferData(gl.ARRAY_BUFFER,this.cityBack.view(),gl.STATIC_DRAW);
+      this.backReady=true;
+    }
+    this.buffer(this.backGroundBuffer,this.groundBack.length/7);
+    if(!this.cutaway)this.buffer(this.backCityBuffer,this.cityBack.length/7);
+  }
   zoomBy(amount) {this.zoom=clamp(this.zoom*amount,.48,2.1);}
   focus(point, immediate=false) {this.cameraTarget={x:clamp(point.x,-2,38),y:clamp(point.y,-2,38)};if(immediate)this.camera={...this.cameraTarget};}
   buffer(buffer,count) {
@@ -404,13 +442,34 @@ export class Renderer {
     }else gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES,0,count);
   }
+  // VANILLAJS updateRange + CorpoWars3d retained batch capacity: compare the
+  // current Float32 stream with its last successful upload and send only the
+  // enclosing changed vertex range. One bounded snapshot per GPU stream.
   uploadMesh(mesh,buffer,capacityName) {
     const gl=this.gl;gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+    let previous=this.uploadSnapshots.get(buffer),allocated=false;
     if(mesh.length*4>this[capacityName]) {
       const capacity=Math.max(262144,mesh.data.byteLength);
-      gl.bufferData(gl.ARRAY_BUFFER,capacity,gl.DYNAMIC_DRAW);this[capacityName]=capacity;this.stats.storageAllocations++;
+      gl.bufferData(gl.ARRAY_BUFFER,capacity,gl.DYNAMIC_DRAW);this[capacityName]=capacity;this.stats.storageAllocations++;allocated=true;
     }
-    if(mesh.length) {gl.bufferSubData(gl.ARRAY_BUFFER,0,mesh.view());this.stats.uploadedBytes+=mesh.length*4;}
+    if(!previous||previous.data.length<mesh.data.length){const data=new Float32Array(mesh.data.length);previous={data,words:new Uint32Array(data.buffer),length:0,prefixKey:null};this.uploadSnapshots.set(buffer,previous);}
+    if(mesh.words?.buffer!==mesh.data.buffer)mesh.words=new Uint32Array(mesh.data.buffer);
+    const words=mesh.words;
+    let first=0,last=mesh.length;
+    if(!allocated){
+      const common=Math.min(mesh.length,previous.length);
+      if(mesh.prefixKey!==undefined&&mesh.prefixKey===previous.prefixKey)first=Math.min(common,mesh.prefixLength);
+      while(first<common&&words[first]===previous.words[first])first++;
+      if(mesh.length<=previous.length)while(last>first&&words[last-1]===previous.words[last-1])last--;
+    }
+    if(last>first){
+      first=Math.floor(first/7)*7;last=Math.ceil(last/7)*7;
+      try{gl.bufferSubData(gl.ARRAY_BUFFER,first*4,mesh.data.subarray(first,last));}
+      catch(error){this.uploadSnapshots.delete(buffer);throw error;}
+      this.stats.uploadedBytes+=(last-first)*4;
+      previous.data.set(mesh.data.subarray(first,last),first);
+    }
+    previous.length=mesh.length;previous.prefixKey=mesh.prefixKey;
   }
   drawMesh(mesh) {this.uploadMesh(mesh,this.dynamic,'dynamicBytes');this.buffer(this.dynamic,mesh.length/7);}
   render(game,hover,alpha=1,delta=1/60) {
@@ -418,18 +477,28 @@ export class Renderer {
     this.camera.x+=(this.cameraTarget.x-this.camera.x)*ease;this.camera.y+=(this.cameraTarget.y-this.camera.y)*ease;
     const gl=this.gl;this.resize();gl.clearColor(.055,.075,.079,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(this.program);
     gl.uniform2f(this.locations.resolution,this.width,this.height);gl.uniform2f(this.locations.camera,this.camera.x,this.camera.y);gl.uniform1f(this.locations.zoom,this.zoom);
-    gl.enable(gl.DEPTH_TEST);gl.depthMask(true);this.buffer(this.ground,this.groundCount);if(!this.cutaway)this.buffer(this.buildings,this.cityCount);
-    const guards=game.guards.filter(e=>visibleGuard(game,e)),key=geometrySignature(game,hover,alpha,guards);
+    if(this.turn||this.rotationSet){const [c,s]=this.rotation();gl.uniform2f(this.locations.rotation,c-1,s);this.rotationSet=true;}
+    gl.enable(gl.DEPTH_TEST);gl.depthMask(true);if(this.turn)this.drawBacks();this.buffer(this.ground,this.groundCount);if(!this.cutaway)this.buffer(this.buildings,this.cityCount);
+    const guards=game.guards.filter(e=>visibleGuard(game,e)),key=this.turn+geometrySignature(game,hover,alpha,guards);
     const mesh=this.mesh,overlay=this.overlay;
     if(key!==this.geometryKey) {
-    this.geometryKey=null;mesh.reset();overlay.reset();
-    const points=[{...game.relay,active:!game.relay.done,kind:'relay'}, {...game.vault,active:game.relay.done&&!game.vault.done,kind:'vault'}, {...game.exit,done:game.phase==='won',active:game.vault.done,kind:'exit'}];
-    for(const p of points) {
-      const col=p.done?'#7f9d86':p.active?'#d1bd65':'#617476';
-      mesh.ring(p.x,p.y,p.kind==='exit'?2.5:1,.07,color(col));
-      if(p.kind!=='exit') {mesh.box(p.x-.22,p.y-.18,.44,.36,.65,'#6d7a72');mesh.box(p.x-.19,p.y-.2,.38,.04,.22,col,.38);}
-      if(p.active) {overlay.ring(p.x,p.y,1.2+Math.sin(game.time*3)*.08,.035,color(col,1,.65));}
-    }
+    this.geometryKey=null;mesh.reset();overlay.reset();mesh.fullSides=!!this.turn;
+    const current=currentObjectiveKey(game),points=objectiveKeys(game).map(key=>({...game[key],active:key===current,kind:key,done:key==='exit'?game.phase==='won':game[key].done}));
+    // Retain the objective batch like CorpoWars3d's static city batch. Only
+    // capture state/coordinates or full-side mode rebuild these rings/terminals.
+    const objectiveKey=JSON.stringify([!!this.turn,...points.map(p=>[p.x,p.y,p.kind,p.done,p.active])]);
+    if(objectiveKey!==this.objectiveKey){
+      const batch=this.objectiveMesh??(this.objectiveMesh=new Mesh());batch.reset();batch.fullSides=!!this.turn;
+      for(const p of points){
+        const col=p.done?'#7f9d86':p.active?'#d1bd65':'#617476';
+        batch.ring(p.x,p.y,p.kind==='exit'?2.5:1,.07,color(col));
+        if(p.kind!=='exit'){batch.box(p.x-.22,p.y-.18,.44,.36,.65,'#6d7a72');batch.box(p.x-.19,p.y-.2,.38,.04,.22,col,.38);}
+      }
+      this.objectiveKey=objectiveKey;this.stats.objectiveBuilds++;
+    }else this.stats.objectiveHits++;
+    mesh.prefixKey=objectiveKey;mesh.prefixLength=this.objectiveMesh.length;
+    mesh.reserve(this.objectiveMesh.length);mesh.data.set(this.objectiveMesh.view(),mesh.length);mesh.length+=this.objectiveMesh.length;
+    for(const p of points)if(p.active)overlay.ring(p.x,p.y,1.2+Math.sin(game.time*3)*.08,.035,color(p.done?'#7f9d86':'#d1bd65',1,.65));
     if(game.mission.kind==='hold'&&!game.vault.done) {
       mesh.ring(game.vault.x,game.vault.y,3,.055,color(game.holdContested?'#e18a73':game.relay.done?'#8bc8ac':'#788d88',1,.7));
     }
@@ -446,7 +515,7 @@ export class Renderer {
       const x=(unit.prevX??unit.x)+(unit.x-(unit.prevX??unit.x))*alpha,y=(unit.prevY??unit.y)+(unit.y-(unit.prevY??unit.y))*alpha;
       const agent=unit.team==='agent';
       if(unit.hp<=0) {mesh.box(x-.25,y-.15,.5,.3,.08,'#4b5151');continue;}
-      writeActor(mesh,unit,x,y,game.time,alpha);
+      this.actor(mesh,unit,x,y,game.time,alpha);
       if(!agent&&unit.enemyType==='marksman') {
         overlay.tri([x-.09,y,1.23],[x+.09,y,1.23],[x,y,1.36],color('#c9a5e4',1,.85));
       }
@@ -466,7 +535,7 @@ export class Renderer {
       if(unit.hp<=0)mesh.box(x-.25,y-.15,.5,.3,.08,'#4b5151');
       else {
         const accent=unit.active?'#8ad9dc':'#d0b67c';
-        writeActor(mesh,unit,x,y,game.time,alpha,true);
+        this.actor(mesh,unit,x,y,game.time,alpha,true);
         overlay.ring(x,y,.36,.045,color(accent,1,.8),1.08);
         overlay.tri([x-.12,y,1.24],[x+.12,y,1.24],[x,y,1.4],color(accent));
         if(unit.active||unit.hp<unit.maxHp) {
@@ -497,9 +566,17 @@ export class Renderer {
     }else this.stats.geometryHits++;
     this.buffer(this.dynamic,mesh.length/7);gl.disable(gl.DEPTH_TEST);gl.depthMask(false);this.buffer(this.overlayBuffer,overlay.length/7);gl.depthMask(true);
   }
+  actor(mesh,unit,x,y,time,alpha,courier=false) {
+    const start=mesh.length;
+    writeActor(mesh,unit,x,y,time,alpha,courier);
+    // The compact character models are camera-facing dioramas. Rotate their
+    // local geometry back towards the viewer; world positions never change.
+    if(this.turn){const [c,s]=this.rotation();for(let i=start;i<mesh.length;i+=7){const dx=mesh.data[i]-x,dy=mesh.data[i+1]-y;mesh.data[i]=x+c*dx+s*dy;mesh.data[i+1]=y-s*dx+c*dy;}}
+  }
   dispose() {
     const gl=this.gl;for(const vao of this.vaos.values())gl.deleteVertexArray(vao);this.vaos.clear();
     for(const b of [this.dynamic,this.overlayBuffer,this.ground,this.buildings])gl.deleteBuffer(b);
-    this.geometryKey=null;gl.deleteProgram(this.program);
+    for(const b of [this.backGroundBuffer,this.backCityBuffer])if(b)gl.deleteBuffer(b);
+    this.uploadSnapshots.clear();this.geometryKey=null;gl.deleteProgram(this.program);
   }
 }
