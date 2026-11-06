@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { aimManualFire, manualFire, createGame, startGame, tick, STEP, selectAgents, orderMove, orderAttack, orderEscort, objectiveDuration, stopAgents, medkit, pulse, visibleGuard, clamp, cycleMode, togglePanic } from './simulation.js';
 import { createCampaign, decodeCampaign, SAVE_KEY, WEAPONS, AUG_MODES, MISSIONS, settleMission } from './campaign.js';
-import { objectiveKeys, captureKeys, currentObjectiveKey, objectiveLabel } from './objectives.js';
+import { objectiveKeys, captureKeys, capturesComplete, currentObjectiveKey, objectiveLabel } from './objectives.js';
 import { challengeResults, recordChallenges } from './challenges.js';
 import { headquarters } from './headquarters.js';
 import { Renderer } from './renderer.js';
@@ -48,6 +48,7 @@ function prepareObjectives() {
       });
     }
   }
+  $('world-labels').append(labels.courier);
 }
 prepareObjectives();
 const abilityCounts={medkit:$('medkit').querySelector('span'),pulse:$('pulse').querySelector('span'),panic:$('panic').querySelector('span')};
@@ -316,13 +317,13 @@ function updateMissionStatus(active) {
   css($('radar'),'escort-radar',!!courier);
   let text='',urgent=false;
   if(mission.kind==='hold'){
-    text=!game.relay.done?'SIEGE · DISABLE THE RELAY TO OPEN THE TRANSMITTER':game.vault.done?'TRANSMISSION COMPLETE · EXTRACT EVERY SURVIVING AGENT':game.holdContested?'TRANSMITTER CONTESTED · CLEAR NEARBY SECURITY TO CONTINUE':`HOLD TRANSMITTER · ${Math.floor(game.vault.progress)}/${objectiveDuration(game,'vault')}s · KEEP AN AGENT BESIDE THE TERMINAL`;
+    text=!game.relay.done?'SIEGE · DISABLE THE RELAY TO OPEN THE TRANSMITTER':game.vault.done?(capturesComplete(game)?'TRANSMISSION COMPLETE · EXTRACT EVERY SURVIVING AGENT':'TRANSMISSION COMPLETE · SECURE THE REMAINING CONTROL NODES'):game.holdContested?'TRANSMITTER CONTESTED · CLEAR NEARBY SECURITY TO CONTINUE':`HOLD TRANSMITTER · ${Math.floor(game.vault.progress)}/${objectiveDuration(game,'vault')}s · KEEP AN AGENT BESIDE THE TERMINAL`;
     urgent=!!game.holdContested;
   }else if(mission.kind==='escort'&&courier){
-    text=!courier.active?'WITNESS SECURED · REACH AND RELEASE THE COURIER':courier.hp<=0?'COURIER LOST':`COURIER ${Math.ceil(courier.hp)}/${courier.maxHp} HP · ${game.escortFollowing?'ESCORT DETAIL ACTIVE':'STAY CLOSE · ASSIGN AN ESCORT DETAIL'}`;
+    text=!courier.active?`WITNESS SECURED · ${captureKeys(game).filter(key=>!game[key].done).length} CAPTURES BEFORE ESCORT`:courier.hp<=0?'COURIER LOST':`COURIER ${Math.ceil(courier.hp)}/${courier.maxHp} HP · ${game.escortFollowing?'ESCORT DETAIL ACTIVE':'STAY CLOSE · ASSIGN AN ESCORT DETAIL'}`;
     urgent=courier.active&&courier.hp<courier.maxHp*.35;
   }else if(mission.kind==='lockdown'){
-    text=game.lockdownRemaining===null?'LOCKDOWN DORMANT · RELAY SABOTAGE STARTS THE EXTRACTION CLOCK':`LOCKDOWN IN ${timeText(Math.ceil(game.lockdownRemaining))} · ${game.vault.done?'REACH EXTRACTION':'SEIZE THE GOLDEN PARACHUTE'}`;
+    text=game.lockdownRemaining===null?'LOCKDOWN DORMANT · RELAY SABOTAGE STARTS THE EXTRACTION CLOCK':`LOCKDOWN IN ${timeText(Math.ceil(game.lockdownRemaining))} · ${capturesComplete(game)?'REACH EXTRACTION':game.vault.done?'SECURE REMAINING CONTROL NODES':'SEIZE THE GOLDEN PARACHUTE'}`;
     urgent=game.lockdownRemaining!==null&&game.lockdownRemaining<=30;
   }
   prop($('mission-status'),'textContent',text);attr($('mission-status'),'title',text);css($('mission-console'),'urgent',urgent);
