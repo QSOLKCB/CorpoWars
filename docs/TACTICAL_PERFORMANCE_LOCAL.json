@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": {
+    "src/renderer.js": "4733aa41d65074f10d3d2ab0fe6dda00765db76b863e32809f064db04d3e7c9f",
+    "src/simulation.js": "c570283119c3474e77b94be115d819dae2469e42986dae3bf744433eac3cbb1c",
+    "src/objectives.js": "6cbeef24a6599468a0043c7a743a251b862a8733a3accd9d8546236482c68f9b",
+    "src/campaign.js": "c1e0e2ef7091867cee1e85f9fc05d68a727cae53009f4e5259cba63754d58193",
+    "scripts/tactical-performance.mjs": "1dd833fb80f07395e2ab80af5dfaeff2ece0d09b77dee63e47af0d77cc2591ed",
+    "scripts/performance-render-model.mjs": "7eb511182e8dcaf7b267a3146e06f58c7fe9f15e22cf041b98b2785c6396d1af"
+  },
+  "environment": {
+    "runtime": "v24.22.1",
+    "cpu": "AMD EPYC 9V74 80-Core Processor"
+  },
+  "protocol": {
+    "frames": 90,
+    "warmupPairs": 2,
+    "pairs": 7,
+    "order": "alternating",
+    "reference": "same candidate with full objective rebuilds and full-stream uploads",
+    "scope": "CPU geometry and test-model buffer copies; renderer setup excluded, lazy rotated-side upload included. No GPU time, driver-memory or end-to-end FPS claim.",
+    "memory": "one retained Float32 upload snapshot per dynamic stream; objective batch retained; no historical frame cache"
+  },
+  "workloads": [
+    {
+      "map": 1,
+      "captures": 2,
+      "frames": 90,
+      "outputSha256": "9ad33e8062cf8d2212f972a182ea7ec31f72068c46e2b8bb880e561eb2d468e3",
+      "reference": {
+        "uploadedBytes": 11653152,
+        "uploadCalls": 182,
+        "objectiveBuilds": 91,
+        "objectiveHits": 0,
+        "retainedGpuBytes": 1492808,
+        "uploadSnapshotBytes": 0
+      },
+      "candidate": {
+        "uploadedBytes": 1874880,
+        "uploadCalls": 182,
+        "objectiveBuilds": 3,
+        "objectiveHits": 88,
+        "retainedGpuBytes": 1492808,
+        "uploadSnapshotBytes": 524288
+      },
+      "samplesMs": {
+        "reference": [
+          12.032328000000007,
+          9.924747999999965,
+          9.967081000000007,
+          10.522312999999997,
+          10.28542200000004,
+          10.051004999999975,
+          9.853102999999976
+        ],
+        "candidate": [
+          10.59412900000001,
+          12.230120999999997,
+          10.325941999999998,
+          9.664723999999978,
+          9.643642,
+          13.400532999999996,
+          10.101350000000025
+        ]
+      },
+      "medianMs": {
+        "reference": 10.051004999999975,
+        "candidate": 10.325941999999998
+      }
+    },
+    {
+      "map": 6,
+      "captures": 7,
+      "frames": 90,
+      "outputSha256": "1512a4b93b61e99b800d80e582354054f87084f85d3da788d89ab1f4764dca79",
+      "reference": {
+        "uploadedBytes": 13978608,
+        "uploadCalls": 182,
+        "objectiveBuilds": 91,
+        "objectiveHits": 0,
+        "retainedGpuBytes": 1688696,
+        "uploadSnapshotBytes": 0
+      },
+      "candidate": {
+        "uploadedBytes": 1949808,
+        "uploadCalls": 182,
+        "objectiveBuilds": 3,
+        "objectiveHits": 88,
+        "retainedGpuBytes": 1688696,
+        "uploadSnapshotBytes": 524288
+      },
+      "samplesMs": {
+        "reference": [
+          16.673667000000023,
+          15.491258000000016,
+          13.766455000000065,
+          14.240445000000022,
+          13.197793000000047,
+          12.943084999999996,
+          12.951017999999976
+        ],
+        "candidate": [
+          10.047550000000001,
+          9.809808999999973,
+          10.080097999999907,
+          9.57993799999997,
+          9.586517999999955,
+          9.797960999999987,
+          9.453841999999895
+        ]
+      },
+      "medianMs": {
+        "reference": 13.766455000000065,
+        "candidate": 9.797960999999987
+      }
+    }
+  ]
+}

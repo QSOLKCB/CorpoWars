@@ -83,8 +83,8 @@ test('failed upload never publishes a partial generation, including a return to 
   const {game,model,renderer,render}=fixture();const first=dynamic(render());
   const original=model.gl.bufferSubData;let calls=0;
   model.gl.bufferSubData=function(...args){if(++calls===2)throw new Error('injected upload failure');return original.apply(this,args);};
-  game.agents[0].hp-=10;assert.throws(()=>render(),/injected upload failure/);
-  model.gl.bufferSubData=original;game.agents[0].hp+=10;
+  game.agents[0].hp-=10;game.time=1;assert.throws(()=>render(),/injected upload failure/);
+  model.gl.bufferSubData=original;game.agents[0].hp+=10;game.time=0;
   assert.deepEqual(dynamic(render()),first);assert.equal(renderer.stats.geometryBuilds,2);
   renderer.dispose();
 });

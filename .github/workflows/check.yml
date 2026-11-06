@@ -25,6 +25,7 @@ jobs:
           node scripts/performance-render.mjs > test-results/renderer-performance.json
           node scripts/visual-polish-performance.mjs > test-results/visual-polish-performance.json
           node scripts/navigation-performance.mjs > test-results/navigation-performance.json
+          node scripts/tactical-performance.mjs > test-results/tactical-performance.json
       - run: node scripts/build.mjs
       - name: Retain performance observations
         if: always()
@@ -34,8 +35,13 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
   browser:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [render, tactical, campaign, expansion]
+    name: browser-${{ matrix.suite }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,12 +55,17 @@ jobs:
           # still fails if any required runtime library is absent.
           "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install chromium
       - run: node scripts/build.mjs
+      - name: Validate direct fire, rotating camera, supplies and expanded objectives
+        if: matrix.suite == 'tactical'
+        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-tactical.cjs
       - name: Compare native environment pixels with v0.3.0
+        if: matrix.suite == 'render'
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-renderer.cjs
       - name: Inspect polished actors and enforce native work budgets
+        if: matrix.suite == 'render'
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-polish.cjs
       - name: Retain character galleries before the gameplay checks
-        if: always()
+        if: always() && matrix.suite == 'render'
         uses: actions/upload-artifact@v4
         with:
           name: actor-polish-galleries
@@ -63,14 +74,16 @@ jobs:
             test-results/visual-polish-browser.json
           if-no-files-found: ignore
       - name: Play the campaign and validate headquarters in Chromium WebGL2
+        if: matrix.suite == 'campaign'
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
       - name: Play the expansion and migrate an existing campaign in Chromium WebGL2
+        if: matrix.suite == 'expansion'
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-expansion.cjs
       - name: Retain visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-screenshots
+          name: browser-screenshots-${{ matrix.suite }}
           path: |
             test-results/
             !test-results/polish-*.png

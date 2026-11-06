@@ -1,5 +1,14 @@
 # CorpoWars
 
+Tactical upgrade: hold **right-click** to fire the controlled agent, use **WASD /
+arrow keys / middle-drag** to pan, and **[ / ]** or **↶ / ↷** to rotate through four
+battlefield angles. Maps now require **2, 3, 4, 5, 6 and 7 capture points**, each
+with one extraction zone. Buy reserve trauma patches in Headquarters for **250 CR**
+each; unused reserves persist and consumed reserves remain spent after a retry.
+See [tactical upgrade details](docs/TACTICAL_UPGRADE.md) for controls, economy,
+performance provenance, measured work reductions and validation limits.
+
+
 [![Correctness](https://github.com/QSOLKCB/CorpoWars/actions/workflows/check.yml/badge.svg)](https://github.com/QSOLKCB/CorpoWars/actions/workflows/check.yml)
 [![GitHub Pages](https://github.com/QSOLKCB/CorpoWars/actions/workflows/pages.yml/badge.svg)](https://github.com/QSOLKCB/CorpoWars/actions/workflows/pages.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-d6bf76.svg)](LICENSE)

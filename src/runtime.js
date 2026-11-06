@@ -23,14 +23,14 @@ export function writeClass(node, key, enabled) {
   if (node.classList.contains(key) !== enabled) node.classList.toggle(key, enabled);
 }
 
-const objectives = ['relay', 'vault', 'exit'];
+import { objectiveKeys } from './objectives.js';
 export function drawMinimapBackground(context, game, scale = 6) {
   context.fillStyle = '#10191b';
   context.fillRect(0, 0, 36 * scale, 36 * scale);
   context.fillStyle = '#394846';
   for (const b of game.world.buildings) context.fillRect(b.x * scale, b.y * scale, b.w * scale, b.d * scale);
   context.strokeStyle = '#91af9e';
-  for (const key of objectives) {
+  for (const key of objectiveKeys(game)) {
     const p = game[key];
     context.strokeRect(p.x * scale - 3, p.y * scale - 3, 6, 6);
   }
@@ -50,12 +50,12 @@ export class MinimapBackground {
   }
   matches(game) {
     const values = this.#values, buildings = game.world.buildings;
-    if (!values || values.length !== buildings.length * 4 + 6) return false;
+    if (!values || values.length !== buildings.length * 4 + objectiveKeys(game).length * 2) return false;
     let i = 0;
     for (const b of buildings) {
       if (values[i++] !== b.x || values[i++] !== b.y || values[i++] !== b.w || values[i++] !== b.d) return false;
     }
-    for (const key of objectives) {
+    for (const key of objectiveKeys(game)) {
       if (values[i++] !== game[key].x || values[i++] !== game[key].y) return false;
     }
     return true;
@@ -66,7 +66,7 @@ export class MinimapBackground {
       drawMinimapBackground(this.context, game, this.#scale);
       const values = [];
       for (const b of game.world.buildings) values.push(b.x, b.y, b.w, b.d);
-      for (const key of objectives) values.push(game[key].x, game[key].y);
+      for (const key of objectiveKeys(game)) values.push(game[key].x, game[key].y);
       this.#values = values;
     }
     context.drawImage(this.canvas, 0, 0);

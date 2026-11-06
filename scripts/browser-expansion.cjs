@@ -63,7 +63,7 @@ async function gpuSample(page){
     assert.deepEqual(decoded.completed,[0,1,2]);assert.equal(decoded.cash,2150);
     await new Promise(done=>server.listen(0,'127.0.0.1',done));
     const url=`http://127.0.0.1:${server.address().port}/CorpoWars/`;
-    browser=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+    browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
     page=await browser.newPage({viewport:{width:1440,height:900}});
     const errors=[];page.on('pageerror',error=>errors.push(String(error)));
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
@@ -95,7 +95,9 @@ async function gpuSample(page){
       await objective(page,'relay');
       await pauseCheck(page,{status:definition.kind==='lockdown'});
       if(definition.kind==='lockdown')assert.match(await page.locator('#mission-status').textContent(),/LOCKDOWN/i);
-      await objective(page,'vault');
+      if(definition.kind!=='escort')await objective(page,'vault');
+      for(let i=0;i<definition.captures.length;i++)await objective(page,`capture${i+1}`);
+      if(definition.kind==='escort')await objective(page,'vault');
       if(definition.kind==='escort'){
         await page.locator('#escort-order').waitFor({state:'visible'});
         assert.match(await page.locator('#mission-status').textContent(),/COURIER/i);
@@ -141,7 +143,9 @@ async function gpuSample(page){
     assert.equal(decodeCampaign(persisted).cash,cash);
     const beforeReplay=JSON.parse(persisted);
     await page.locator('#hq-ready').click();await page.locator('#deploy').click();
-    await objective(page,'relay');await objective(page,'vault');await page.locator('#exit-order').click();
+    await objective(page,'relay');await objective(page,'vault');
+    for(let i=0;i<MISSIONS[3].captures.length;i++)await objective(page,`capture${i+1}`);
+    await page.locator('#exit-order').click();
     await page.locator('#debrief').waitFor({state:'visible',timeout:120000});
     assert.match(await page.locator('#result-title').textContent(),/FULFILLED/);
     assert.match(await page.locator('#result-copy').textContent(),/already paid out/);

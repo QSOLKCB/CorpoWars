@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The simulation has no DOM, graphics, audio, network, or wall-clock dependencies.
-import { createCampaign, WEAPONS, AUG_MODES, MISSIONS, DIFFICULTIES, ENEMY_TYPES } from './campaign.js';
+import { createCampaign, WEAPONS, AUG_MODES, MISSIONS, DIFFICULTIES, ENEMY_TYPES, reservePatches } from './campaign.js';
+import { capturesComplete, currentObjectiveKey } from './objectives.js';
 export const STEP = 1 / 30;
 export const SIZE = 36;
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -170,7 +171,7 @@ function guard(id, x, y, difficulty = DIFFICULTIES.relaxed, enemyType = 'guard')
 }
 
 export function objectiveDuration(game,key) {
-  return key==='relay'?(game.mission.relayDuration??3):key==='vault'?(game.mission.vaultDuration??5):2;
+  return key==='relay'?(game.mission.relayDuration??3):key==='vault'?(game.mission.vaultDuration??5):key==='exit'?2:4;
 }
 
 export function configureWeapon(agent, research = [], refill = true) {
@@ -189,14 +190,14 @@ export function createGame(seed, campaign = createCampaign(), missionIndex = cam
   const point = ([x,y])=>({x,y,progress:0,done:false});
   const game = {
     mission, missionIndex, upgrades, difficulty,
-    world, time: 0, phase: 'briefing', paused: false, holdFire: false, selected: new Set([0, 1, 2, 3]),
+    world, time: 0, phase: 'briefing', paused: false, holdFire: false, controlledAgent: 0, manualAim: null, selected: new Set([0, 1, 2, 3]),
     agents: profiles.map((p, id) => ({ ...p, hp: p.hp+(upgrades.includes('torso')?30:0), maxHp: p.hp+(upgrades.includes('torso')?30:0),
       speed: p.speed*(upgrades.includes('legs')?1.18:1), armour: upgrades.includes('torso')?.2:0,
       id, team: 'agent', x: mission.spawn[0]+id, y: mission.spawn[1], prevX: mission.spawn[0]+id, prevY: mission.spawn[1],
       weapon: campaign.loadout[id], mode: campaign.modes[id], path: [], target: null, cooldown: 0, ammo: 12, reload: 0 })),
     guards: mission.guards.map(([x,y,type],i)=>guard(100+i,x,y,difficulty,type)),
     relay: point(mission.relay), vault: point(mission.vault), exit: point(mission.exit),
-    medkits: upgrades.includes('med2')?4:2, healAmount: upgrades.includes('med2')?110:upgrades.includes('med1')?85:55,
+    medkits: (upgrades.includes('med2')?4:2)+reservePatches(campaign), reserveMedkits: reservePatches(campaign), healAmount: upgrades.includes('med2')?110:upgrades.includes('med1')?85:55,
     hackSpeed: upgrades.includes('head')?1.3:1,
     panicEnabled: false, panicCooldown: 0, panicRange: upgrades.includes('panic1')?9:7,
     panicDuration: (upgrades.includes('panic2')?11:upgrades.includes('panic1')?8:5)*difficulty.fearScale,
@@ -206,6 +207,14 @@ export function createGame(seed, campaign = createCampaign(), missionIndex = cam
     holdContested:false,holdWavesSpawned:(mission.waves??[]).map(()=>false),
     lockdownRemaining:null,escortFollowing:false,escortAgents:[],escortThink:0,
   };
+  const defenders=new Set(game.guards.map(unit=>Math.floor(unit.y)*world.size+Math.floor(unit.x)));
+  game.captureKeys = mission.captures.map((position,i)=>{
+    const key=`capture${i+1}`;
+    game[key]={...point(position),label:`CONTROL ${i+(mission.kind==='escort'?2:3)}`};
+    const post=nearestWalkable(world,position[0],position[1],defenders);
+    if(post){defenders.add(Math.floor(post.y)*world.size+Math.floor(post.x));game.guards.push(guard(500+i,post.x,post.y,difficulty,i>1?'bulwark':'guard'));}
+    return key;
+  });
   if(mission.kind==='escort')game.courier={id:300,name:'Witness',team:'courier',x:game.vault.x,y:game.vault.y,
     prevX:game.vault.x,prevY:game.vault.y,active:false,hp:mission.courier.hp,maxHp:mission.courier.hp,
     speed:mission.courier.speed,path:[],armour:0};
@@ -229,8 +238,10 @@ export function startGame(game) {
 }
 
 export function selectAgents(game, ids, additive = false) {
+  game.manualAim=null;
   if (!additive) game.selected.clear();
   for (const id of ids) if (game.agents.some(a => a.id === id && a.hp > 0)) game.selected.add(id);
+  if(ids.length && game.selected.has(ids[0]))game.controlledAgent=ids[0];
 }
 
 function formationMove(game,x,y,ids) {
@@ -247,6 +258,7 @@ function formationMove(game,x,y,ids) {
 }
 export function orderMove(game, x, y) {
   if (game.phase !== 'active' || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+  game.manualAim=null;
   const issued=formationMove(game,x,y,game.selected);
   if(issued)game.escortFollowing=false;
   if (issued) { game.effects.push({ type: 'order', x, y, life: 1, maxLife: 1 }); game.events.push({ type: 'order' }); }
@@ -270,7 +282,7 @@ export function orderAttack(game, id) {
   if (game.phase !== 'active') return false;
   const enemy = game.guards.find(e => e.id === id);
   if (!enemy || !visibleGuard(game, enemy)) return false;
-  game.escortFollowing=false;
+  game.manualAim=null;game.escortFollowing=false;
   for (const a of game.agents.filter(a => a.hp > 0 && game.selected.has(a.id))) {
     a.target = id;
     a.path = findPath(game.world, a, enemy);
@@ -280,7 +292,7 @@ export function orderAttack(game, id) {
 
 export function stopAgents(game) {
   if (game.phase !== 'active') return;
-  game.escortFollowing=false;
+  game.manualAim=null;game.escortFollowing=false;
   for (const a of game.agents) if (game.selected.has(a.id)) { a.path = []; a.target = null; }
 }
 
@@ -289,6 +301,7 @@ export function medkit(game) {
   const hurt = game.agents.filter(a => a.hp > 0 && a.hp < a.maxHp && game.selected.has(a.id));
   if (!hurt.length) return false;
   for (const a of hurt) a.hp = Math.min(a.maxHp, a.hp + game.healAmount);
+  if(game.medkits<=game.reserveMedkits)game.reserveMedkits--;
   game.medkits--;game.metrics.medkitsUsed++; message(game, 'Trauma patch applied to selected agents.', 'heal'); return true;
 }
 
@@ -378,16 +391,48 @@ function updateCourier(game,dt) {
 function fire(game, unit, target) {
   unit.cooldown = unit.interval;
   if (unit.team === 'agent') unit.ammo--;
-  target.hp = Math.max(0, target.hp - Math.max(1, Math.round(unit.damage*(1-(target.armour||0)))));
+  if(target.team)target.hp = Math.max(0, target.hp - Math.max(1, Math.round(unit.damage*(1-(target.armour||0)))));
   game.alert = Math.max(game.alert, 10);
   game.effects.push({ type: 'shot', x: unit.x, y: unit.y, tx: target.x, ty: target.y, life: .13, maxLife: .13, team: unit.team, weapon: unit.weapon });
   game.events.push({ type: 'shot', team: unit.team });
-  if (target.hp <= 0) {
+  if (target.team && target.hp <= 0) {
     target.path = [];
     if (target.team === 'guard') { game.kills++; message(game, 'Security unit neutralised.'); }
     else if(target.team==='courier')message(game,'The witness has been killed. Contract terminated.','danger');
     else { game.selected.delete(target.id); message(game, `${target.name} is down.`, 'danger'); }
   }
+}
+
+// A direct shot consumes the controlled agent's real ammo/cooldown. Friendly
+// bodies stop the ray without damage; walls win ties. No path or target lock.
+export function manualFire(game, id, x, y) {
+  const a=game.agents.find(unit=>unit.id===id);
+  if(game.phase!=='active'||game.paused||!a||a.hp<=0||!game.selected.has(id)||!Number.isFinite(x)||!Number.isFinite(y)||a.cooldown>0||a.reload>0||a.ammo<=0)return false;
+  const length=Math.hypot(x-a.x,y-a.y);
+  if(!Number.isFinite(length)||length<1e-6)return false;
+  const dx=(x-a.x)/length,dy=(y-a.y)/length,reach=Math.min(length,a.range);
+  let end=reach,target=null;
+  for(const unit of [...game.agents,...game.guards,...(game.courier?.active?[game.courier]:[])]) {
+    if(unit===a||unit.hp<=0)continue;
+    const ux=unit.x-a.x,uy=unit.y-a.y,along=ux*dx+uy*dy,perp=ux*dy-uy*dx;
+    if(along<0||Math.abs(perp)>.35)continue;
+    const entry=Math.max(0,along-Math.sqrt(Math.max(0,.35*.35-perp*perp)));
+    if(entry<end){end=entry;target=unit;}
+  }
+  let hit={x:a.x+dx*end,y:a.y+dy*end};
+  if(!lineOfSight(game.world,a,hit)) {
+    let lo=0,hi=end;
+    for(let i=0;i<24;i++){const mid=(lo+hi)/2;if(lineOfSight(game.world,a,{x:a.x+dx*mid,y:a.y+dy*mid}))lo=mid;else hi=mid;}
+    hit={x:a.x+dx*lo,y:a.y+dy*lo};target=null;
+  }
+  fire(game,a,target?.team==='guard'?target:hit);
+  return true;
+}
+export function aimManualFire(game,x,y) {
+  const a=game.agents.find(unit=>unit.id===game.controlledAgent&&unit.hp>0&&game.selected.has(unit.id));
+  if(game.phase!=='active'||game.paused||!a||!Number.isFinite(x)||!Number.isFinite(y))return false;
+  a.path=[];a.target=null;game.escortFollowing=false;
+  game.manualAim={id:a.id,x,y};return true;
 }
 
 export function tick(game, dt = STEP) {
@@ -405,6 +450,7 @@ export function tick(game, dt = STEP) {
     a.cooldown -= dt;
     if (a.reload > 0) { a.reload -= dt; if (a.reload <= 0) a.ammo = a.magazine; }
     if (!a.ammo && a.reload <= 0) a.reload = a.reloadTime;
+    if(game.manualAim?.id===a.id){manualFire(game,a.id,game.manualAim.x,game.manualAim.y);continue;}
     const requested = game.guards.find(e => e.id === a.target && e.hp > 0);
     const inRange = e => e.hp > 0 && distance(a, e) <= a.range && lineOfSight(world, a, e);
     let target=requested&&inRange(requested)?requested:null;
@@ -461,7 +507,7 @@ export function tick(game, dt = STEP) {
         message(game,`Lockdown initiated. ${game.lockdownRemaining} seconds to seize the reserve and extract.`,'danger');
       }
     }
-  } else if (!game.vault.done) {
+  } else if (!game.vault.done && currentObjectiveKey(game)==='vault') {
     if(game.mission.kind==='hold') {
       const occupied=living.some(a=>distance(a,game.vault)<1.7&&!a.path.length&&lineOfSight(world,a,game.vault));
       for(const [i,wave] of (game.mission.waves??[]).entries())if(!game.holdWavesSpawned[i]&&occupied&&game.vault.progress>=wave.at){
@@ -477,13 +523,20 @@ export function tick(game, dt = STEP) {
       if(game.vault.progress>=objectiveDuration(game,'vault'))game.vault.done=true;
     }else channel(game.vault, objectiveDuration(game,'vault'));
     if (game.vault.done) {
-      message(game, `${game.mission.labels[1]} secured. Return every surviving agent to extraction.`, 'objective');
+      message(game, `${game.mission.labels[1]} secured. Secure remaining control points, then extract every survivor.`, 'objective');
       game.guards.push(...game.mission.reinforcements.map(([x,y,type],i)=>guard(200+i,x,y,game.difficulty,type)));
       if(game.courier){game.courier.active=true;game.courier.path=findPath(world,game.courier,game.exit);message(game,'Witness released. Use Escort to accompany them; stay within six tiles and line of sight.','objective');}
       game.alert = 30;
     }
   }
-  if (game.vault.done) {
+  if(game.relay.done) {
+    const key=currentObjectiveKey(game);
+    if(key.startsWith('capture')) {
+      const point=game[key];channel(point,objectiveDuration(game,key));
+      if(point.done)message(game,`${point.label} captured. ${capturesComplete(game)?'Extraction unlocked.':'Next control point unlocked.'}`,'objective');
+    }
+  }
+  if (capturesComplete(game)) {
     const courierReady=!game.courier||game.courier.active&&game.courier.hp>0&&distance(game.courier,game.exit)<=3;
     if (living.every(a => distance(a, game.exit) <= 3)&&courierReady) game.extraction += dt;
     else game.extraction = 0;

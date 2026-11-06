@@ -30,7 +30,7 @@ const server=createServer(async(req,res)=>{
   let browser,page;
   try{
     await new Promise(done=>server.listen(0,'127.0.0.1',done));
-    browser=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+    browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
     page=await browser.newPage({viewport:{width:1536,height:1100},deviceScaleFactor:1});
     const errors=[];page.on('pageerror',error=>errors.push(String(error)));
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
@@ -138,6 +138,8 @@ const server=createServer(async(req,res)=>{
       const staticCases=[];
       for(let index=0;index<MISSIONS.length;index++){
         const a=surface(),b=surface(),game=createGame(undefined,createCampaign(),index);game.agents=[];game.guards=[];game.selected.clear();delete game.courier;
+        // Freeze the two-capture historical environment; browser-tactical checks all expanded maps.
+        game.captureKeys=[];
         const old=new Reference(a.wrapper,game),current=new Candidate(b.wrapper,game);old.pixelRatio=current.pixelRatio=1;
         old.render(game,null,1,1/60);current.render(game,null,1,1/60);exact(a.read(),b.read(),`actorless ${game.mission.id}`);budget(a.counts(),b.counts(),`actorless ${game.mission.id}`);
         staticCases.push({id:game.mission.id,exactPixels:true});a.release(old);b.release(current);

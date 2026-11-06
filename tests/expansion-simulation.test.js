@@ -1,3 +1,4 @@
+import { objectiveKeys } from '../src/objectives.js';
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,7 +29,7 @@ function veteran(){
 function objectiveFixture(index){
   const game=createGame(undefined,undefined,index);startGame(game);game.guards=[];game.holdFire=true;
   for(const a of game.agents){a.x=game.vault.x;a.y=game.vault.y;a.path=[];}
-  game.relay.done=true;return game;
+  game.relay.done=true;for(const key of game.captureKeys)game[key].done=true;return game;
 }
 
 test('expansion has six distinct connected maps while the first three remain byte-for-byte unchanged',()=>{
@@ -112,7 +113,7 @@ test('courier cannot be targeted before release and death afterward terminates a
 });
 
 test('courier is mandatory at extraction and does not move or progress while paused',()=>{
-  const game=objectiveFixture(4);game.vault.done=true;game.courier.active=true;
+  const game=objectiveFixture(4);game.vault.done=true;game.courier.active=true;for(const key of game.captureKeys)game[key].done=true;
   for(const a of game.agents){a.x=game.exit.x;a.y=game.exit.y;}
   run(game,3);assert.equal(game.extraction,0);assert.equal(game.phase,'active');
   game.courier.x=game.exit.x;game.courier.y=game.exit.y;game.courier.path=[];
@@ -131,7 +132,7 @@ test('lockdown starts after the relay, freezes on pause, expires and permits an 
     game.paused=false;game.lockdownRemaining=STEP;tick(game);assert.equal(game.phase,'lost');assert.equal(game.lockdownRemaining,0);
     const expired=JSON.stringify(game);run(game,2);assert.equal(JSON.stringify(game),expired);
   }
-  const game=objectiveFixture(5);game.vault.done=true;game.lockdownRemaining=STEP;game.extraction=2-STEP/2;
+  const game=objectiveFixture(5);game.vault.done=true;game.lockdownRemaining=STEP;game.extraction=2-STEP/2;for(const key of game.captureKeys)game[key].done=true;
   for(const a of game.agents){a.x=game.exit.x;a.y=game.exit.y;}
   tick(game);assert.equal(game.phase,'won');assert.equal(game.lockdownRemaining,0);
 });
@@ -151,7 +152,7 @@ test('all six contracts have deterministic winning real-combat routes with a leg
     const campaign=veteran(),outcomes=[];
     for(let index=0;index<MISSIONS.length;index++){
       const game=createGame(undefined,campaign,index);startGame(game);
-      for(const key of ['relay','vault','exit']){
+      for(const key of objectiveKeys(game)){
         if(key==='exit'&&game.courier?.active)assert.ok(orderEscort(game));else assert.ok(orderMove(game,game[key].x,game[key].y));
         for(let i=0;i<6000&&game.phase==='active'&&(key==='exit'||!game[key].done);i++){
           tick(game);game.events=[];

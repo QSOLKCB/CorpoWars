@@ -18,7 +18,7 @@ const server=createServer(async(req,res)=>{
   try {
     await new Promise(done=>server.listen(0,'127.0.0.1',done));
     const url=`http://127.0.0.1:${server.address().port}/CorpoWars/`;
-    browser=await chromium.launch({args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+    browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||undefined,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
     const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[];
     page.on('pageerror',error=>errors.push(String(error)));
     page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
@@ -90,6 +90,7 @@ const server=createServer(async(req,res)=>{
       await page.locator('#vault-order').click();
       await page.waitForFunction(()=>document.getElementById('vault-order').classList.contains('done'),null,{timeout:60000});
       if(mission===0){await page.locator('#cutaway').click();await page.screenshot({path:'test-results/gameplay-v030.png',fullPage:true});await page.locator('#cutaway').click();}
+      for(let i=1;i<=mission;i++){await page.locator(`#capture${i}-order`).click();await page.waitForFunction(key=>document.getElementById(`${key}-order`).classList.contains('done'),`capture${i}`,{timeout:60000});}
       await page.locator('#exit-order').click();await page.locator('#debrief').waitFor({state:'visible',timeout:60000});
       assert.match(await page.locator('#result-title').textContent(),/FULFILLED/);
       await page.screenshot({path:`test-results/victory-${mission+1}.png`,fullPage:true});

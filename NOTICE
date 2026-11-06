@@ -18,3 +18,12 @@ invariant/signature concepts in QSOLKCB/OPT at
 7556dd36acd53ed3ed538fd03b1db44e5c1ec869. No Wonderbuild or GPL donor source
 is copied. CorpoWars retains its original projection, geometry and route rules.
 See docs/PERFORMANCE.md for provenance, exactness and measurement limits.
+
+The tactical upgrade also adapts changed-range vertex uploads from
+QSOLKCB/VANILLAJS modules/render-webgl/index.js at
+93ace342c11e2427ad82920c8965f16e91518fb7, and retained static/dynamic batch
+separation from QSOLKCB/CorpoWars3d src/renderer.js at
+8e86066686a575402ee2818378f1ec9323fb9ee6 (both Apache-2.0).
+These are local adaptations; neither repository is a runtime dependency.
+The default projection is preserved; optional quarter-turn views add original
+camera transforms and rear building faces. See docs/TACTICAL_UPGRADE.md.

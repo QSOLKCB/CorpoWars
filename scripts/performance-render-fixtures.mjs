@@ -8,6 +8,9 @@ export const WORKLOADS=['briefing-camera','paused-orders','active-patrol','chang
 export function renderFixture(name) {
   const campaign=createCampaign();campaign.difficulty=name==='changing-combat'?'hostile':'relaxed';
   const game=createGame(undefined,campaign,name==='paused-orders'?1:name==='changing-combat'?2:0);
+  // Freeze the historical two-capture scene for the legacy renderer comparison.
+  // Expanded objectives are covered by tactical-controls and full campaign checks.
+  game.captureKeys=[];game.guards=game.guards.filter(unit=>unit.id<500);
   if(name!=='briefing-camera')startGame(game);
   if(name==='active-patrol')orderMove(game,game.relay.x,game.relay.y);
   if(name==='paused-orders')game.paused=true;
@@ -40,7 +43,7 @@ export function renderFixture(name) {
     } else {
       game.time=index*STEP;
       game.selected=new Set(index%2?[0,2]:[1,3]);
-      game.relay.done=index%11>4;game.vault.done=index%17>9;
+      game.relay.done=index%11>4;game.vault.done=game.relay.done&&index%17>9;
       for(const [i,a]of game.agents.entries()) {
         a.prevX=a.x;a.x+=index%2?.015:-.015;a.path=index%3?[{x:a.x+1,y:a.y}]:[];
         a.hp=a.maxHp-index%20;a.fear=index%5===0?1:0;a.stun=index%7===0?1:0;

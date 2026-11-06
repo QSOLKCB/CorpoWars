@@ -26,6 +26,9 @@ export function polishFixture(name) {
   if(!Object.hasOwn(missions,name))throw new RangeError(`unknown visual workload: ${name}`);
   const campaign=createCampaign();campaign.difficulty=name==='spire-combat'||name==='specialist-stress'?'hostile':'relaxed';
   const game=createGame(undefined,campaign,missions[name]);
+  // Freeze the historical two-capture scene for the legacy renderer comparison.
+  // Expanded objectives are covered by tactical-controls and full campaign checks.
+  game.captureKeys=[];game.guards=game.guards.filter(unit=>unit.id<500);
   if(name!=='breakwater-briefing')startGame(game);
   if(name==='foundry-paused')game.paused=true;
   if(name==='breakwater-patrol')orderMove(game,game.relay.x,game.relay.y);
