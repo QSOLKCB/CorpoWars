@@ -36,7 +36,7 @@ jobs:
           if-no-files-found: ignore
   browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +50,8 @@ jobs:
           # still fails if any required runtime library is absent.
           "$RUNNER_TEMP/corpowars-browser/node_modules/.bin/playwright" install chromium
       - run: node scripts/build.mjs
+      - name: Validate direct fire, rotating camera, supplies and expanded objectives
+        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-tactical.cjs
       - name: Compare native environment pixels with v0.3.0
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-renderer.cjs
       - name: Inspect polished actors and enforce native work budgets
@@ -63,8 +65,6 @@ jobs:
             test-results/polish-*.png
             test-results/visual-polish-browser.json
           if-no-files-found: ignore
-      - name: Validate direct fire, rotating camera, supplies and expanded objectives
-        run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-tactical.cjs
       - name: Play the campaign and validate headquarters in Chromium WebGL2
         run: NODE_PATH="$RUNNER_TEMP/corpowars-browser/node_modules" node scripts/browser-check.cjs
       - name: Play the expansion and migrate an existing campaign in Chromium WebGL2

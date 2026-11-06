@@ -207,10 +207,12 @@ export function createGame(seed, campaign = createCampaign(), missionIndex = cam
     holdContested:false,holdWavesSpawned:(mission.waves??[]).map(()=>false),
     lockdownRemaining:null,escortFollowing:false,escortAgents:[],escortThink:0,
   };
+  const defenders=new Set(game.guards.map(unit=>Math.floor(unit.y)*world.size+Math.floor(unit.x)));
   game.captureKeys = mission.captures.map((position,i)=>{
     const key=`capture${i+1}`;
     game[key]={...point(position),label:`CONTROL ${i+(mission.kind==='escort'?2:3)}`};
-    game.guards.push(guard(500+i,position[0],position[1],difficulty,i>1?'bulwark':'guard'));
+    const post=nearestWalkable(world,position[0],position[1],defenders);
+    if(post){defenders.add(Math.floor(post.y)*world.size+Math.floor(post.x));game.guards.push(guard(500+i,post.x,post.y,difficulty,i>1?'bulwark':'guard'));}
     return key;
   });
   if(mission.kind==='escort')game.courier={id:300,name:'Witness',team:'courier',x:game.vault.x,y:game.vault.y,

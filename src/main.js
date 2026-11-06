@@ -154,7 +154,7 @@ canvas.addEventListener('pointerdown',event=>{
 canvas.addEventListener('pointermove',event=>{
   if(!renderer)return;const p=local(event);hover=renderer.unproject(p.x,p.y);
   if(!drag||drag.id!==event.pointerId)return;
-  if(drag.button===2)aimAt(p);
+  if(drag.button===2){if(!(event.buttons&2)){cancelDrag();return;}aimAt(p);}
   else if(drag.button===1){setFollow(false);renderer.pan(drag.last.x-p.x,drag.last.y-p.y);}
   else if(drag.button===0&&Math.hypot(p.x-drag.start.x,p.y-drag.start.y)>7) {
     const box=$('selection-box');box.hidden=false;style(box.style,'left',`${Math.min(p.x,drag.start.x)}px`);style(box.style,'top',`${Math.min(p.y,drag.start.y)}px`);style(box.style,'width',`${Math.abs(p.x-drag.start.x)}px`);style(box.style,'height',`${Math.abs(p.y-drag.start.y)}px`);

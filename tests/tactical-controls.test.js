@@ -63,6 +63,7 @@ test('held manual fire reloads naturally and never queues an attack or movement 
 test('maps require 2 through 7 distinct reachable captures and one extraction; locked nodes do not progress',()=>{
   for(let i=0;i<MISSIONS.length;i++){
     const g=createGame(undefined,undefined,i),keys=captureKeys(g),points=objectiveKeys(g).map(k=>g[k]);
+    assert.equal(new Set(g.guards.map(e=>`${e.x},${e.y}`)).size,g.guards.length,'defenders must not stack at spawn');
     assert.equal(keys.length,i+2);assert.equal(objectiveKeys(g).filter(k=>k==='exit').length,1);
     assert.equal(new Set(points.map(p=>`${p.x},${p.y}`)).size,points.length);
     for(const p of points){assert.ok(walkable(g.world,p.x,p.y));assert.ok(findPath(g.world,g.agents[0],p).length);}
