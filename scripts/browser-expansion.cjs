@@ -143,7 +143,9 @@ async function gpuSample(page){
     assert.equal(decodeCampaign(persisted).cash,cash);
     const beforeReplay=JSON.parse(persisted);
     await page.locator('#hq-ready').click();await page.locator('#deploy').click();
-    await objective(page,'relay');await objective(page,'vault');await page.locator('#exit-order').click();
+    await objective(page,'relay');await objective(page,'vault');
+    for(let i=0;i<MISSIONS[3].captures.length;i++)await objective(page,`capture${i+1}`);
+    await page.locator('#exit-order').click();
     await page.locator('#debrief').waitFor({state:'visible',timeout:120000});
     assert.match(await page.locator('#result-title').textContent(),/FULFILLED/);
     assert.match(await page.locator('#result-copy').textContent(),/already paid out/);
